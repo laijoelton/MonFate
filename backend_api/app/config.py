@@ -45,6 +45,11 @@ class Settings:
     # A vehicle within this ETA of a stop is "approaching" and can be alerted.
     DISPATCH_ETA_WINDOW_S: int = int(os.getenv("SYS_DISPATCH_ETA_WINDOW_S", "420"))
 
+    # Citizen chat provider. Secrets remain backend-only.
+    CHAT_PROVIDER: str = os.getenv("CHAT_PROVIDER", "mock").strip().lower()
+    DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
+    DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+
 
 @lru_cache
 def get_settings() -> Settings:

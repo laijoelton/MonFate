@@ -13,6 +13,19 @@ from app.schemas.ingest import (
     VisionEventAck,
     VisionEventPayload,
 )
+from app.schemas.assistance import (
+    AssistanceRequest,
+    AssistanceRequestAck,
+    AssistanceRequestCreate,
+    AssistanceRequestStatus,
+)
+from app.schemas.chat import (
+    AssistanceActionProposal,
+    ChatActionProposal,
+    ChatMessage,
+    ChatRequest,
+    ObstacleActionProposal,
+)
 
 __all__ = [
     "Coordinates",
@@ -36,4 +49,13 @@ __all__ = [
     "VehicleTelemetryPayload",
     "VisionEventAck",
     "VisionEventPayload",
+    "AssistanceRequest",
+    "AssistanceRequestAck",
+    "AssistanceRequestCreate",
+    "AssistanceRequestStatus",
+    "AssistanceActionProposal",
+    "ChatActionProposal",
+    "ChatMessage",
+    "ChatRequest",
+    "ObstacleActionProposal",
 ]

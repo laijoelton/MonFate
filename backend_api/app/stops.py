@@ -15,6 +15,7 @@ STOPS: dict[str, Coordinates] = {
     "stop_02": Coordinates(lat=2.9213, lng=101.6559),  # Shaftsbury Square
     "stop_03": Coordinates(lat=2.9265, lng=101.6520),  # Cyberjaya Transport Terminal
     "stop_04": Coordinates(lat=2.9276, lng=101.6416),  # MMU Cyberjaya
+    "stop_05": Coordinates(lat=2.9324, lng=101.6551),  # Hospital Cyberjaya
 }
 
 STOP_NAMES: dict[str, str] = {
@@ -22,9 +23,10 @@ STOP_NAMES: dict[str, str] = {
     "stop_02": "Shaftsbury Square",
     "stop_03": "Cyberjaya Transport Terminal",
     "stop_04": "MMU Cyberjaya",
+    "stop_05": "Hospital Cyberjaya",
 }
 
-STOP_ORDER: list[str] = ["stop_01", "stop_02", "stop_03", "stop_04"]
+STOP_ORDER: list[str] = ["stop_01", "stop_02", "stop_03", "stop_04", "stop_05"]
 
 
 def location_of(stop_id: str) -> Coordinates | None:

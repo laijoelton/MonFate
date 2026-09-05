@@ -13,6 +13,7 @@ import {
 import { TelemetryStrip } from "@/components/TelemetryStrip";
 import { TransitTrackerCard } from "@/components/TransitTrackerCard";
 import { Card } from "@/components/ui/Card";
+import { CitizenChatDrawer } from "@/components/CitizenChatDrawer";
 import { postObstacle } from "@/lib/api";
 import { useCockpit } from "@/lib/useCockpit";
 import { ACCESSIBILITY_FILTERS } from "@/lib/mock-data";
@@ -167,6 +168,10 @@ export default function Cockpit() {
           error={submitError}
         />
       )}
+      <CitizenChatDrawer
+        stops={cockpit.stops}
+        onObstacleCreated={cockpit.pushObstacle}
+      />
     </div>
   );
 }
