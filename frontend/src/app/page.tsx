@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { MapPinPlus } from "lucide-react";
 import { AccessibilityFilterBar } from "@/components/AccessibilityFilterBar";
@@ -88,14 +89,22 @@ export default function Cockpit() {
               Accessible transit cockpit &mdash; SDG 11
             </p>
           </div>
-          <button
-            type="button"
-            onClick={openReportForm}
-            className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-slate-950 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            <MapPinPlus aria-hidden className="h-4 w-4" />
-            Report Obstacle
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Link
+              href="/admin"
+              className="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-accent/50 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              Operator dashboard
+            </Link>
+            <button
+              type="button"
+              onClick={openReportForm}
+              className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-slate-950 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              <MapPinPlus aria-hidden className="h-4 w-4" />
+              Report Obstacle
+            </button>
+          </div>
         </div>
       </header>
 

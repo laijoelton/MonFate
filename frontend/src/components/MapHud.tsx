@@ -26,6 +26,7 @@ interface MapHudProps {
   activeFilters: Set<AccessibilityFeature>;
   selectedObstacleId: string | null;
   onSelectObstacle: (obstacle: ObstacleReport) => void;
+  appearance?: "default" | "sampai";
 }
 
 /**
@@ -40,7 +41,9 @@ export function MapHud({
   activeFilters,
   selectedObstacleId,
   onSelectObstacle,
+  appearance = "default",
 }: MapHudProps) {
+  const isSampai = appearance === "sampai";
   const visibleObstacles = useMemo(
     () =>
       activeFilters.size === 0
@@ -91,7 +94,13 @@ export function MapHud({
           .join(" ");
 
   return (
-    <div className="glass relative h-full overflow-hidden rounded-2xl">
+    <div
+      className={
+        isSampai
+          ? "relative h-full overflow-hidden rounded-[22px] border border-[#ceddd6] bg-[#dceae3] shadow-[0_18px_50px_rgba(21,47,37,0.12)]"
+          : "glass relative h-full overflow-hidden rounded-2xl"
+      }
+    >
       <svg
         viewBox={`0 0 ${VIEW} ${VIEW}`}
         role="img"
@@ -101,8 +110,8 @@ export function MapHud({
       >
         {Array.from({ length: 11 }, (_, i) => i * (VIEW / 10)).map((pos) => (
           <g key={`grid-${pos}`}>
-            <line x1={pos} y1={0} x2={pos} y2={VIEW} stroke="oklch(0.4 0.02 260 / 0.15)" strokeWidth={0.25} />
-            <line x1={0} y1={pos} x2={VIEW} y2={pos} stroke="oklch(0.4 0.02 260 / 0.15)" strokeWidth={0.25} />
+            <line x1={pos} y1={0} x2={pos} y2={VIEW} stroke={isSampai ? "rgba(80,126,109,.18)" : "oklch(0.4 0.02 260 / 0.15)"} strokeWidth={0.25} />
+            <line x1={0} y1={pos} x2={VIEW} y2={pos} stroke={isSampai ? "rgba(80,126,109,.18)" : "oklch(0.4 0.02 260 / 0.15)"} strokeWidth={0.25} />
           </g>
         ))}
 
@@ -110,7 +119,7 @@ export function MapHud({
           <path
             d={routePath}
             fill="none"
-            stroke="var(--color-accent)"
+            stroke={isSampai ? "#0b6b52" : "var(--color-accent)"}
             strokeWidth={0.8}
             strokeOpacity={0.45}
             strokeDasharray="2 1.5"
@@ -122,12 +131,12 @@ export function MapHud({
           const { x, y } = project(s.location);
           return (
             <g key={s.stop_id} transform={`translate(${x} ${y})`}>
-              <circle r={1.8} fill="oklch(0.16 0.015 260)" stroke="var(--color-accent)" strokeWidth={0.5} />
+              <circle r={1.8} fill={isSampai ? "#ffffff" : "oklch(0.16 0.015 260)"} stroke={isSampai ? "#0b6b52" : "var(--color-accent)"} strokeWidth={0.5} />
               <text
                 x={0}
                 y={-3}
                 textAnchor="middle"
-                fill="oklch(0.75 0.02 260)"
+                fill={isSampai ? "#46534d" : "oklch(0.75 0.02 260)"}
                 style={{ fontSize: 2.4 }}
               >
                 {s.name}
@@ -143,8 +152,8 @@ export function MapHud({
               <title>{`${v.route_id} — ${v.vehicle_id}${v.is_accessible ? " (accessible)" : ""}`}</title>
               <path
                 d="M 0 -2.6 L 1.9 2.2 L 0 1.1 L -1.9 2.2 Z"
-                fill={v.is_accessible ? "var(--color-accent)" : "var(--color-idle)"}
-                stroke="oklch(0.16 0.015 260)"
+                fill={v.is_accessible ? (isSampai ? "#0b6b52" : "var(--color-accent)") : "var(--color-idle)"}
+                stroke={isSampai ? "#ffffff" : "oklch(0.16 0.015 260)"}
                 strokeWidth={0.3}
               />
             </g>
@@ -177,7 +186,7 @@ export function MapHud({
                 r={2.4}
                 fill={STATUS_COLOR[o.status]}
                 fillOpacity={Math.max(0.35, o.trust_score / 100)}
-                stroke="oklch(0.16 0.015 260)"
+                stroke={isSampai ? "#ffffff" : "oklch(0.16 0.015 260)"}
                 strokeWidth={0.4}
               />
             </g>
@@ -185,14 +194,14 @@ export function MapHud({
         })}
       </svg>
 
-      <div className="glass absolute right-3 top-3 flex flex-col gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-300">
+      <div className={isSampai ? "absolute right-3 top-3 flex flex-col gap-1.5 rounded-[14px] border border-[#d9e4df] bg-white/95 px-3 py-2 text-xs text-[#46534d] shadow-[0_8px_22px_rgba(0,0,0,.1)]" : "glass absolute right-3 top-3 flex flex-col gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-300"}>
         <span className="flex items-center gap-1.5">
           <TriangleAlert aria-hidden className="h-3.5 w-3.5 text-down" /> Obstacle
         </span>
         <span className="flex items-center gap-1.5">
-          <Bus aria-hidden className="h-3.5 w-3.5 text-accent" /> Accessible vehicle
+          <Bus aria-hidden className={`h-3.5 w-3.5 ${isSampai ? "text-[#0b6b52]" : "text-accent"}`} /> Accessible vehicle
         </span>
-        <span className="text-[10px] text-slate-500">Opacity = trust score</span>
+        <span className={`text-[10px] ${isSampai ? "text-[#66736d]" : "text-slate-500"}`}>Opacity = trust score</span>
       </div>
     </div>
   );
