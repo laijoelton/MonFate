@@ -208,6 +208,43 @@ the existing `assistance_request` WebSocket event to the admin dashboard.
 The full layer-by-layer feature breakdown and changelog live in
 [README.md](../README.md#current-system-architecture--implemented-features).
 
+## Button voice feedback (2026-09-06)
+
+The cockpit now has a persistent, opt-in **Speak buttons** switch. A client
+provider in `frontend/src/components/VoiceFeedback.tsx` speaks native button
+labels on activation, including dynamically rendered dialog and alert buttons.
+Filter buttons announce the resulting on/off state. SVG obstacle markers use
+the same provider for mouse and Enter/Space activation. Speech is cancelled
+when another action replaces it or the switch is turned off.
+
+Report submission announces progress after form validation, success after the
+backend responds, and failure when the request fails. Disabled buttons do not
+speak. Browser speech errors are shown as text; normal actions still work.
+The preference defaults off so screen-reader users can avoid duplicate speech.
+No backend contracts changed. The visual-assistance navigation and vibration
+endpoints remain demos; this change does not implement real route guidance.
+
+### Manual acceptance checks
+
+Run `npm run dev` in `frontend`, then open `http://localhost:3000`:
+
+1. Enable Speak buttons: hear the enabled confirmation. Reload: setting stays on.
+2. Activate Report Obstacle: hear the form-opening message. Close with the X:
+   hear Close dialog, even though the dialog stops click propagation.
+3. Toggle each accessibility filter twice: hear its label with On, then Off.
+4. Activate an obstacle marker by mouse, Enter, and Space: hear one report
+   announcement per activation. Its focus indicator should be visible.
+5. Dismiss an alert: hear its accessible label, including the headline.
+6. Submit an empty report: browser validation blocks it, with no saved message.
+7. Submit a valid report against the backend: hear Submitting, then saved.
+   With the backend stopped, hear failure instead. While pending, Submit is disabled.
+8. Switch voice off: current speech stops; further buttons are silent but work.
+9. In a browser without speech synthesis, the switch is disabled with an
+   explanatory message. With storage blocked, the switch still works for the session.
+
+Actual audibility depends on browser speech support and device audio settings;
+Swagger checks only JSON responses and cannot verify sound.
+
 ## Open questions
 
 - Real map provider (Leaflet/Mapbox) vs. continued SVG-grid mock for demo

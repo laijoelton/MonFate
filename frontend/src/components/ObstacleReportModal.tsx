@@ -238,9 +238,14 @@ export function ObstacleReportModal({
               </div>
             </fieldset>
 
+            {/* data-voice-manual: the submit closes the dialog immediately, so
+                the global voice capture would announce a control that is already
+                gone. This modal has no `submitting` prop — it does not await the
+                write — so there is nothing to disable against. */}
             <button
               type="submit"
-              className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+              data-voice-manual
+              className="w-full rounded-lg bg-accent py-2 text-sm font-semibold text-slate-950 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
             >
               Submit report
             </button>

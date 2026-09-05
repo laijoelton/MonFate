@@ -81,6 +81,7 @@ export function VisualAssistancePanel() {
       <div className="stack-list" style={{ marginTop: 16, gap: 8 }}>
         <button
           type="button"
+          data-voice-manual
           className="primary-btn"
           onClick={() => void assist.requestAssistance()}
           disabled={assist.busy}
@@ -90,6 +91,7 @@ export function VisualAssistancePanel() {
 
         <button
           type="button"
+          data-voice-manual
           className="ghost-btn"
           onClick={() => void assist.nextNavigationStep()}
           disabled={assist.busy}
@@ -99,6 +101,7 @@ export function VisualAssistancePanel() {
 
         <button
           type="button"
+          data-voice-manual
           className="ghost-btn"
           onClick={() => void assist.triggerAlert("bus_approaching")}
           disabled={assist.busy}
@@ -108,6 +111,7 @@ export function VisualAssistancePanel() {
 
         <button
           type="button"
+          data-voice-manual
           className="ghost-btn"
           onClick={() => void assist.triggerAlert("destination_approaching")}
           disabled={assist.busy}
