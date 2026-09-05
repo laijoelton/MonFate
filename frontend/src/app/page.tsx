@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { CitizenChatDrawer } from "@/components/CitizenChatDrawer";
 import { CitizenNav, type CitizenPage } from "@/components/citizen/CitizenNav";
+import { VisualAssistancePanel } from "@/components/citizen/VisualAssistancePanel";
 import { BottomSheet } from "@/components/citizen/BottomSheet";
 import { ReportChoiceModal } from "@/components/ReportChoiceModal";
 import { BusReportModal, type BusIssueOption } from "@/components/BusReportModal";
@@ -479,6 +480,8 @@ export default function CitizenApp() {
                     ))}
                   </div>
                 </div>
+
+                <VisualAssistancePanel />
               </div>
             )}
           </div>
