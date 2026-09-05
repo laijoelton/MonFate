@@ -13,10 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MonFate — Accessible Transit Cockpit",
+  title: "MonFate — Accessible Transit & Routing",
   description:
-    "Dynamic accessible transit routing: crowd-sourced obstacle reports, station CCTV edge vision, "
-    + "live vehicle telemetry, and pre-emptive dispatch alerts.",
+    "Dynamic, accessible transit routing with crowd-sourced obstacle reports and live vehicle tracking.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

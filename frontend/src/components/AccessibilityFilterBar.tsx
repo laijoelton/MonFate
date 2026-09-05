@@ -18,11 +18,6 @@ interface AccessibilityFilterBarProps {
   onToggle: (feature: AccessibilityFeature) => void;
 }
 
-/**
- * Rider accessibility profile. Selecting needs filters the map to obstacles
- * that actually block them — an empty selection shows everything rather than
- * nothing, so a first-time rider is never met with a blank map.
- */
 export function AccessibilityFilterBar({
   features,
   active,
@@ -43,10 +38,10 @@ export function AccessibilityFilterBar({
             type="button"
             aria-pressed={isActive}
             onClick={() => onToggle(feature)}
-            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
               isActive
-                ? "border-accent bg-accent/20 text-accent"
-                : "border-slate-700/70 bg-slate-800/40 text-slate-300 hover:border-accent/50 hover:text-slate-100"
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : "border-zinc-300 bg-white text-zinc-700 hover:border-emerald-400 hover:text-emerald-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-500"
             }`}
           >
             <Icon aria-hidden className="h-4 w-4" />
