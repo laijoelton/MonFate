@@ -8,6 +8,15 @@ are disabled and mobility-impaired passengers at public transit stops. The
 station node reports "a wheelchair boarding request occurred at stop X at time
 T" and nothing else — no frames, no faces, no re-identifiable attributes.
 
+This guarantee covers the DISPATCH path in full: nothing this emitter sends,
+under any configuration, contains imagery or an inferred personal attribute.
+
+One optional component sits outside it. `--age-backend roboflow` uploads preview
+frames to a hosted age model (see `roboflow_age.py`). It is off by default,
+requires `--preview`, and its output never reaches this emitter — but while it
+is enabled the *device* is no longer image-free, even though the *events* still
+are. Deployments that need the unqualified guarantee must leave it off.
+
 Sinks:
   - stdout : one JSON line per event (default)
   - http   : POST to <base>/api/v1/vision/events  with X-API-Key

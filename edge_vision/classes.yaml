@@ -35,3 +35,24 @@ other_threshold: 0.70
 required_consecutive: 5
 
 # Runtime model_version is a checkpoint SHA-256 fingerprint, or "mock".
+
+# Adapting a third-party checkpoint (ONNX backend only).
+#
+# A checkpoint whose own labels differ from `names` above is rejected by
+# default — a silent index mismatch would file strollers as wheelchairs. To use
+# one, declare the mapping here and it is validated instead of guessed. Keys are
+# the CHECKPOINT's labels, values are labels from `names`, or null to discard.
+# Every checkpoint class must appear, so a class added upstream cannot quietly
+# start firing dispatch events.
+#
+# To use the Roboflow wheelchair model locally (no frames leave the device):
+#   1. Open the `wheelchair-9qvfx` project version 3 on roboflow.com
+#   2. Download the version with format "ONNX" (not the hosted API snippet)
+#   3. Save it as edge_vision/models/wheelchair.onnx
+#   4. Uncomment the map below, correcting the keys to the exported label names
+#   5. python -m edge_vision.run --weights edge_vision/models/wheelchair.onnx \
+#          --backend onnx --source 0 --preview
+#
+# checkpoint_class_map:
+#   wheelchair: wheelchair
+#   person: null

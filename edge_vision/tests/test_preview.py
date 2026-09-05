@@ -140,7 +140,7 @@ def test_preview_holds_and_age_never_enter_gate_or_events(monkeypatch, capsys, e
     monkeypatch.setattr(cv2, "waitKey", lambda *a: -1)
     monkeypatch.setattr(cv2, "destroyAllWindows", lambda: None)
     monkeypatch.delenv("SYS_API_BASE_URL", raising=False)
-    args = ["run", "--preview", "--max-frames", "11"] + (["--demographics"] if enabled else [])
+    args = ["run", "--preview", "--no-person-association", "--max-frames", "11"] + (["--demographics"] if enabled else [])
     monkeypatch.setattr(sys, "argv", args)
     original = run.EventEmitter._deliver
     def deliver(self, event):

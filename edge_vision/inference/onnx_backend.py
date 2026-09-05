@@ -22,7 +22,7 @@ import cv2
 import numpy as np
 
 from .base import Detection, Detector
-from .validation import ClassMapError, validate_class_names
+from .validation import ClassMapError, build_class_translation, validate_class_names
 
 
 # --------------------------------------------------------------------------- #
@@ -77,6 +77,7 @@ class OnnxDetector(Detector):
         imgsz: int = 416,
         device: str = "auto",
         iou_thres: float = 0.45,
+        class_map: dict[str, str | None] | None = None,
     ):
         import onnxruntime as ort  # lazy
 
@@ -90,7 +91,20 @@ class OnnxDetector(Detector):
         meta = self._sess.get_modelmeta().custom_metadata_map or {}
         self._layout = meta.get("layout", "yolo")
         self._imgsz = int(meta.get("img_size", imgsz))
-        self.class_names = validate_class_names(meta.get("names") or meta.get("classes"), class_names)
+        raw_names = meta.get("names") or meta.get("classes")
+        if class_map:
+            # Third-party checkpoint: validate its own labels, then translate
+            # through the declared map. `self.class_names` stays in checkpoint
+            # order because decoding indexes it by raw class id; `_translation`
+            # converts to contract labels at emit time.
+            checkpoint_names = validate_class_names(raw_names, None)
+            self._translation = build_class_translation(
+                checkpoint_names, class_names or checkpoint_names, class_map
+            )
+            self.class_names = checkpoint_names
+        else:
+            self.class_names = validate_class_names(raw_names, class_names)
+            self._translation = None
         if self._layout not in {"yolo", "cxcywh_obj_cls_pixels"}:
             raise ClassMapError(f"unsupported output layout: {self._layout}")
         outputs = self._sess.get_outputs()
@@ -171,11 +185,19 @@ class OnnxDetector(Detector):
 
         out: list[Detection] = []
         for cid in np.unique(class_ids):
+            name = self._label_for(int(cid))
+            if name is None:
+                continue  # class deliberately discarded by the class map
             idx = np.where(class_ids == cid)[0]
             for k in _nms(xyxy[idx], scores[idx], self._iou):
                 j = idx[k]
-                name = self.class_names[cid] if cid < len(self.class_names) else str(int(cid))
                 out.append(
                     Detection(int(cid), name, float(scores[j]), tuple(float(v) for v in xyxy[j]))
                 )
         return out
+
+    def _label_for(self, cid: int) -> str | None:
+        """Contract label for a raw checkpoint class id, or None to discard."""
+        if self._translation is not None:
+            return self._translation[cid] if cid < len(self._translation) else None
+        return self.class_names[cid] if cid < len(self.class_names) else str(cid)

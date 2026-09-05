@@ -19,3 +19,9 @@ tqdm>=4.66
 
 # Optional: MQTT event sink
 # paho-mqtt>=2.0
+
+# Optional: hosted age overlay (--age-backend roboflow).
+# UPLOADS PREVIEW FRAMES OFF THE DEVICE. Left commented so it is never a
+# transitive install; enable deliberately, and set ROBOFLOW_API_KEY in a
+# gitignored .env — never on the command line, never committed.
+# inference-sdk>=0.9

@@ -72,17 +72,23 @@ def load_detector(
     imgsz: int = 416,
     device: str = "auto",
     fallback: bool = False,
+    class_map: dict[str, str | None] | None = None,
 ) -> Detector:
     if backend == "mock":
         return MockDetector(class_names)
     if fallback:
-        return _load_with_fallback(weights, class_names, imgsz, device)
+        return _load_with_fallback(weights, class_names, imgsz, device, class_map)
 
     backend = backend or infer_backend_from_path(weights)
-    return _construct(backend, weights, class_names, imgsz, device)
+    return _construct(backend, weights, class_names, imgsz, device, class_map)
 
 
-def _construct(backend, weights, class_names, imgsz, device) -> Detector:
+def _construct(backend, weights, class_names, imgsz, device, class_map=None) -> Detector:
+    if class_map and backend != "onnx":
+        raise ValueError(
+            f"checkpoint_class_map is only supported by the onnx backend, not {backend!r}; "
+            "ignoring it would silently mislabel detections"
+        )
     if backend == "pytorch":
         from .pytorch_backend import PyTorchDetector
 
@@ -90,7 +96,8 @@ def _construct(backend, weights, class_names, imgsz, device) -> Detector:
     if backend == "onnx":
         from .onnx_backend import OnnxDetector
 
-        return OnnxDetector(weights, class_names=class_names, imgsz=imgsz, device=device)
+        return OnnxDetector(weights, class_names=class_names, imgsz=imgsz, device=device,
+                            class_map=class_map)
     if backend == "tflite":
         from .tflite_backend import TFLiteDetector
 
@@ -102,11 +109,17 @@ def _construct(backend, weights, class_names, imgsz, device) -> Detector:
     raise ValueError(f"unknown backend {backend!r}")
 
 
-def _load_with_fallback(weights, class_names, imgsz, device) -> Detector:
+def _load_with_fallback(weights, class_names, imgsz, device, class_map=None) -> Detector:
     stem = Path(weights).with_suffix("")
-    candidates: list[tuple[str, Path]] = [
-        (be, stem.with_suffix(ext)) for ext, be in _FALLBACK_ORDER if stem.with_suffix(ext).is_file()
-    ]
+    if class_map:
+        # A class map describes one specific checkpoint's label order. Walking
+        # the fallback chain would apply it to a sibling artifact whose indices
+        # may differ, so pin to exactly the file that was asked for.
+        candidates = [(infer_backend_from_path(weights), Path(weights))]
+    else:
+        candidates = [
+            (be, stem.with_suffix(ext)) for ext, be in _FALLBACK_ORDER if stem.with_suffix(ext).is_file()
+        ]
     if not candidates:  # only the file we were given exists
         candidates = [(infer_backend_from_path(weights), Path(weights))]
 
@@ -115,7 +128,7 @@ def _load_with_fallback(weights, class_names, imgsz, device) -> Detector:
     for be, path in candidates:
         for dev in dict.fromkeys(devices):  # dedupe, preserve order
             try:
-                det = _construct(be, path, class_names, imgsz, dev)
+                det = _construct(be, path, class_names, imgsz, dev, class_map)
                 det.warmup()
                 print(f"[vision] inference: {be} on {dev}  ({path.name})")
                 return det

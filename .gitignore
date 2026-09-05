@@ -11,6 +11,7 @@ edge_vision/models/mobility*.pt
 edge_vision/models/mobility*.onnx
 Ultralytics/
 edge_vision/models/age_preview/
+edge_vision/models/person_yolov8n.pt
 
 # Environment — examples are committed, real values never are
 .env

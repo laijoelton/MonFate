@@ -46,7 +46,7 @@ export function CctvEdgeDock({
       <div className="mb-3 flex items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-xs text-slate-400">
         <ShieldCheck aria-hidden className="h-4 w-4 shrink-0 text-ok" />
         <span>
-          Image-free by design — the node ships labels, never frames or faces.
+          Image-free dispatch — these events carry labels only, never frames or faces.
         </span>
       </div>
 

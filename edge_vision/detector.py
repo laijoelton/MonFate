@@ -17,7 +17,8 @@ DISPATCH_CLASSES = set(MOBILITY_CLASSES[:3])
 class MobilityDetector(Detector):
     def __init__(self, weights: str | Path, *, simulation: bool = False,
                  backend: str | None = None, class_names: list[str] | None = None,
-                 imgsz: int = 416, device: str = "auto", fallback: bool = True) -> None:
+                 imgsz: int = 416, device: str = "auto", fallback: bool = True,
+                 class_map: dict[str, str | None] | None = None) -> None:
         self.class_names = validate_class_names(
             MOBILITY_CLASSES if class_names is None else class_names, MOBILITY_CLASSES)
         self.is_simulation = simulation or backend == "mock" or not Path(weights).is_file()
@@ -31,16 +32,18 @@ class MobilityDetector(Detector):
             selected = backend or {".pt": "pytorch", ".onnx": "onnx"}.get(Path(weights).suffix.lower())
             if selected not in {"pytorch", "onnx"}:
                 raise ValueError("mobility deployment requires validated PyTorch or ONNX weights")
+            if class_map and selected != "onnx":
+                raise ValueError("checkpoint_class_map requires the onnx backend")
             # Device fallback stays on the supplied artifact; sibling files may
             # be stale or from another training run.
             try:
                 self._detector = load_detector(weights, backend=selected, class_names=self.class_names,
-                                               imgsz=imgsz, device=device)
+                                               imgsz=imgsz, device=device, class_map=class_map)
             except (RuntimeError, OSError):
                 if not fallback or device == "cpu":
                     raise
                 self._detector = load_detector(weights, backend=selected, class_names=self.class_names,
-                                               imgsz=imgsz, device="cpu")
+                                               imgsz=imgsz, device="cpu", class_map=class_map)
             import hashlib
             hasher = hashlib.sha256()
             with Path(weights).open("rb") as checkpoint:

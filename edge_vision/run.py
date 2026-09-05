@@ -26,6 +26,7 @@ from .gate import ConsecutiveDetectionGate
 from .emitter import EventEmitter
 from .detector import MobilityDetector, DISPATCH_CLASSES
 from .tracking import BoxSmoother, filter_detections
+from .person_preview import PersonPreview, DEFAULT_PERSON_WEIGHTS
 
 
 # --------------------------------------------------------------------------- #
@@ -110,11 +111,20 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--imgsz", type=int, default=416)
     p.add_argument("--device", default=os.getenv("SYS_VISION_DEVICE", "auto"))
     p.add_argument("--preview", action="store_true")
+    p.add_argument("--person-weights", type=Path, default=DEFAULT_PERSON_WEIGHTS,
+                   help="separate pretrained person detector used only by preview")
+    p.add_argument("--no-person-association", action="store_true",
+                   help="disable local full-body boxes and body-to-chair links")
     p.add_argument("--confidence", type=float, help="minimum detection confidence (config default 0.60)")
     p.add_argument("--smoothing-alpha", type=float, default=.35,
                    help="EMA new-box weight in (0,1]; lower gives steadier preview boxes")
     p.add_argument("--demographics", action="store_true",
-                   help="local approximate age overlay only; requires --preview; never emitted")
+                   help="approximate age overlay only; requires --preview; never emitted")
+    p.add_argument("--age-backend", choices=("local", "roboflow"), default="local",
+                   help="local: on-device CPU models (default). roboflow: UPLOADS FRAMES "
+                        "to a hosted service; needs ROBOFLOW_API_KEY")
+    p.add_argument("--age-model-id", default=None,
+                   help="hosted age model id (roboflow backend only)")
     p.add_argument("--age-model-dir", type=Path,
                    default=Path(__file__).resolve().parent / "models" / "age_preview")
     p.add_argument("--max-frames", type=int, default=0, help="stop after N frames (0 = unlimited)")
@@ -124,7 +134,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--simulation", action="store_true", help="use mock inference and mark events simulated")
     args = p.parse_args()
     if args.demographics and not args.preview:
-        p.error("--demographics requires --preview (local age overlay only)")
+        p.error("--demographics requires --preview (age is an overlay, never an event)")
+    if args.age_backend == "roboflow" and not args.demographics:
+        p.error("--age-backend roboflow requires --demographics")
+    if args.age_model_id and args.age_backend != "roboflow":
+        p.error("--age-model-id only applies to --age-backend roboflow")
     if args.max_frames < 0:
         p.error("--max-frames must be non-negative")
     if not 0 < args.smoothing_alpha <= 1:
@@ -157,18 +171,31 @@ def main() -> None:
     if not (0 <= det_conf <= 1 and 0 <= other_thr <= 1):
         raise ValueError("confidence thresholds must each be between 0 and 1")
 
+    class_map = cfg.get("checkpoint_class_map") or None
+    if class_map is not None and not isinstance(class_map, dict):
+        raise ValueError("checkpoint_class_map must be a mapping of checkpoint label -> contract label")
+
     detector = MobilityDetector(
         args.weights, backend=args.backend, class_names=names,
         imgsz=args.imgsz, device=args.device, fallback=args.fallback, simulation=args.simulation,
+        class_map=class_map,
     )
     model_version = detector.model_version
     detector.warmup()
     gate = ConsecutiveDetectionGate(accepted, required)
     smoother = BoxSmoother(alpha=args.smoothing_alpha) if args.preview else None
+    person_preview = None
+    if args.preview and not args.no_person_association:
+        person_preview = PersonPreview(args.person_weights, device=args.device, imgsz=args.imgsz,
+                                       confidence=det_conf, alpha=args.smoothing_alpha)
     age_preview = None
     if args.demographics:
-        from .age_preview import AgePreview
-        age_preview = AgePreview(args.age_model_dir)
+        if args.age_backend == "roboflow":
+            from .roboflow_age import DEFAULT_MODEL_ID, RoboflowAgePreview
+            age_preview = RoboflowAgePreview(model_id=args.age_model_id or DEFAULT_MODEL_ID)
+        else:
+            from .age_preview import AgePreview
+            age_preview = AgePreview(args.age_model_dir)
 
     sink = "http" if args.emit else "mqtt" if args.mqtt else "stdout"
     emitter = EventEmitter(
@@ -212,9 +239,13 @@ def main() -> None:
                 if frame.shape != last_shape:
                     smoother.reset()
                     last_shape = frame.shape
+                # All person inference reads the original frame, before any
+                # age/box drawing. Its output is never added to detections.
+                people = person_preview.detect(frame) if person_preview is not None else []
+                mobility_tracks = smoother.update(detections)
                 if age_preview is not None:
                     age_preview.render(frame)
-                for track in smoother.update(detections):
+                for track in mobility_tracks:
                     d = track.detection
                     lab = resolve_label(d.class_name, d.confidence)
                     x1, y1, x2, y2 = (int(v) for v in d.xyxy)
@@ -223,6 +254,8 @@ def main() -> None:
                     suffix = " (held)" if track.missed else ""
                     cv2.putText(frame, f"{lab.upper()} {d.confidence:.0%}{suffix}", (x1, max(y1 - 8, 20)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+                if person_preview is not None:
+                    person_preview.draw(frame, people, mobility_tracks)
                 cv2.putText(frame, f"{result.status.upper()} {result.label or ''} "
                             f"{result.consecutive}/{required}", (16, 32),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 0), 2)
