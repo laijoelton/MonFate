@@ -151,6 +151,21 @@ no working ramp would report a "handled" boarding that cannot happen.
 - Milestone 7 remains **in progress** until labelled station data is supplied,
   a head is trained, and held-out real-world accuracy is evaluated.
 
+### Milestone 7 — first synthetic training run (2026-09-05)
+
+- Completed five epochs of real YOLOv8n transfer learning on 120 synthetic
+  training images and 24 synthetic validation images. Exported `best.pt` and
+  `best.onnx` under `edge_vision/runs/mobility_smoke/train/weights/` (local,
+  ignored artifacts). The model has not been trained/evaluated on real footage.
+- Synthetic validation: precision 0.9051, recall 0.9444, mAP50 0.9642,
+  mAP50–95 0.9393. These are smoke-test metrics from very few synthetic designs.
+- Both artifacts load without mock fallback. The actual runner emitted
+  five-frame-confirmed wheelchair/mobility_aid metadata events to stdout.
+  Stroller confidence stayed below the 0.70 dispatch threshold.
+- Dataset provenance, artifact paths, verification, and the exact live command
+  are in [MOBILITY_SMOKE_RUN.md](MOBILITY_SMOKE_RUN.md). Real-world evaluation
+  remains required before Milestone 7 can be marked complete.
+
 The full layer-by-layer feature breakdown and changelog live in
 [README.md](../README.md#current-system-architecture--implemented-features).
 
