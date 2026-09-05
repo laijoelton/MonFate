@@ -31,6 +31,8 @@ export const ADMIN_MOCK_VEHICLES: TransitVehicle[] = [
     capacity_status: "standing_room",
     next_stop_id: "stop_01",
     eta_seconds: 240,
+    wheelchair_space_available: true,
+    priority_seats_available: true,
     last_updated_at: ago(0),
   },
   {
@@ -44,6 +46,8 @@ export const ADMIN_MOCK_VEHICLES: TransitVehicle[] = [
     capacity_status: "seats_available",
     next_stop_id: "stop_04",
     eta_seconds: 540,
+    wheelchair_space_available: true,
+    priority_seats_available: true,
     last_updated_at: ago(1),
   },
   {
@@ -57,6 +61,8 @@ export const ADMIN_MOCK_VEHICLES: TransitVehicle[] = [
     capacity_status: "seats_available",
     next_stop_id: "stop_05",
     eta_seconds: 360,
+    wheelchair_space_available: true,
+    priority_seats_available: true,
     last_updated_at: ago(0),
   },
 ];
