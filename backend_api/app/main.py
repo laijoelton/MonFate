@@ -8,7 +8,13 @@
 from __future__ import annotations
 
 import json
+import sys
+from pathlib import Path
 from contextlib import asynccontextmanager
+
+# Shared API/core/routing packages live at the repository root, including when
+# launched with `cd backend_api; uvicorn app.main:app`.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,6 +29,7 @@ from app.security import verify_api_key, verify_signature
 from app.services import dispatch, forecast
 from app.stops import STOP_NAMES, STOP_ORDER, location_of
 from app.stream import hub
+from api.citizen_chat import router as citizen_chat_router
 
 settings = get_settings()
 
@@ -53,6 +60,7 @@ app.add_middleware(
 )
 
 _AUTH = [Depends(verify_api_key), Depends(verify_signature)]
+app.include_router(citizen_chat_router)
 
 
 @app.get("/health", response_model=schemas.HealthOut, tags=["ops"])

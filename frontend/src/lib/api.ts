@@ -12,6 +12,17 @@ import type {
 
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 
+export async function postCitizenChat(message: string, session_id: string, signal: AbortSignal): Promise<{ reply: string }> {
+  const res = await fetch(`${BASE}/api/v1/citizen/chat`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, session_id }), signal,
+  });
+  if (!res.ok) throw new Error(`chat failed: ${res.status}`);
+  const result = await res.json();
+  if (typeof result.reply !== "string" || !result.reply.trim()) throw new Error("Empty chat response");
+  return result;
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`${path} -> ${res.status}`);

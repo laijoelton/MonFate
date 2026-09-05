@@ -194,6 +194,37 @@ The full layer-by-layer feature breakdown and changelog live in
 
 ## Open questions
 
+### Citizen transit assistant (September 2026)
+
+- Added `POST /api/v1/citizen/chat` with validated message/session contracts in
+  `backend_api/app/schemas/chat.py`, router in `api/citizen_chat.py`, and fresh
+  context collection in `core/chat/context_builder.py`.
+- Reads persisted, edge-debounced vision events from the existing vision ingest
+  pipeline, fresh accessible vehicle ETAs/ramp state, decaying active obstacles,
+  and dynamic `RouteOptimizer` dwell plans for Cyberjaya stations. Incompatible
+  stop registries are not geographically guessed; only named Shaftsbury is mapped.
+- No measured OKU/elderly readiness scores, traffic-delay feed, or published
+  timetable baseline exists. Those values remain unknown; existing demographic
+  fixtures are explicitly mock. The offline 15–30 minute headway is a static
+  **demo estimate**, not an operator timetable or guaranteed accessible arrival.
+- Optional OpenAI Responses call uses `OPENAI_API_KEY` and `OPENAI_MODEL`
+  (default `gpt-4.1-mini`), an 8-second timeout, no retries, and `store=False`.
+  Missing keys, provider failures, and telemetry failures return concise templates.
+  Session IDs are accepted but no server conversation history is retained; include
+  the stop name in each question. No keys are exposed to the browser.
+- Embedded `CitizenChatWidget.jsx` in the Next.js dashboard with quick questions,
+  optimistic bubbles, loading state, bounded requests, keyboard focus/Escape,
+  live announcements, reduced motion, and dark/light CSS theme support.
+- Codex implements this explicitly requested backend/frontend feature; normal
+  Claude or human review remains required before merge.
+- Verification: all 52 tests in `tests/` passed (six new chat tests); frontend
+  lint, TypeScript check, and production build passed. Tests isolate the DB and
+  mock OpenAI. Browser visual verification was blocked by the in-app webview
+  attachment timeout; no live paid OpenAI request was made.
+- From the repository root run `python -m uvicorn app.main:app --app-dir backend_api`;
+  alternatively the existing `cd backend_api` launch continues to work.
+
+
 - Real map provider (Leaflet/Mapbox) vs. continued SVG-grid mock for demo
   day — depends on whether we get an API key and network access at the
   venue.

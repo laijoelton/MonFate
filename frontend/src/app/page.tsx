@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MapPinPlus } from "lucide-react";
+import CitizenChatWidget from "@/components/CitizenChatWidget";
 import { AccessibilityFilterBar } from "@/components/AccessibilityFilterBar";
 import { CctvEdgeDock } from "@/components/CctvEdgeDock";
 import { DispatchAlertBanner } from "@/components/DispatchAlertBanner";
@@ -157,6 +158,7 @@ export default function Cockpit() {
         </div>
       </main>
 
+      <CitizenChatWidget />
       {modalOpen && (
         <ObstacleReportModal
           onClose={() => setModalOpen(false)}
