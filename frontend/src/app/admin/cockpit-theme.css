@@ -1,0 +1,70 @@
+/**
+ * MonFate admin "cockpit" theme — ported from the standalone admin
+ * dashboard build, but scoped to .monfate-cockpit instead of the bare
+ * `body` selector, so it only affects /admin and never leaks its dark
+ * background/color-scheme into the main light-themed map page.
+ */
+
+.monfate-cockpit {
+  --color-accent: oklch(0.72 0.15 230);
+  --color-accent-soft: oklch(0.72 0.15 230 / 0.12);
+  --color-ok: oklch(0.75 0.16 155);
+  --color-warn: oklch(0.8 0.15 85);
+  --color-down: oklch(0.68 0.2 25);
+  --color-idle: oklch(0.6 0.02 260);
+
+  min-height: 100vh;
+  background:
+    radial-gradient(60rem 60rem at 80% -10%, oklch(0.3 0.06 250 / 0.35), transparent 60%),
+    radial-gradient(50rem 50rem at -10% 20%, oklch(0.3 0.05 190 / 0.25), transparent 55%),
+    oklch(0.16 0.015 260);
+  color: oklch(0.9 0.01 260);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+.monfate-cockpit .glass {
+  background: oklch(0.24 0.02 260 / 0.55);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid oklch(0.5 0.02 260 / 0.18);
+  box-shadow:
+    0 1px 0 0 oklch(1 0 0 / 0.04) inset,
+    0 20px 40px -24px oklch(0 0 0 / 0.6);
+}
+
+.monfate-cockpit .tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.monfate-cockpit .bg-ok\/15 { background-color: color-mix(in oklch, var(--color-ok) 15%, transparent); }
+.monfate-cockpit .text-ok { color: var(--color-ok); }
+.monfate-cockpit .ring-ok\/30 { --tw-ring-color: color-mix(in oklch, var(--color-ok) 30%, transparent); }
+
+.monfate-cockpit .bg-warn\/15 { background-color: color-mix(in oklch, var(--color-warn) 15%, transparent); }
+.monfate-cockpit .text-warn { color: var(--color-warn); }
+.monfate-cockpit .ring-warn\/30 { --tw-ring-color: color-mix(in oklch, var(--color-warn) 30%, transparent); }
+
+.monfate-cockpit .bg-down\/15 { background-color: color-mix(in oklch, var(--color-down) 15%, transparent); }
+.monfate-cockpit .text-down { color: var(--color-down); }
+.monfate-cockpit .ring-down\/30 { --tw-ring-color: color-mix(in oklch, var(--color-down) 30%, transparent); }
+
+.monfate-cockpit .bg-idle\/15 { background-color: color-mix(in oklch, var(--color-idle) 15%, transparent); }
+.monfate-cockpit .ring-idle\/25 { --tw-ring-color: color-mix(in oklch, var(--color-idle) 25%, transparent); }
+
+.monfate-cockpit .bg-accent\/15 { background-color: color-mix(in oklch, var(--color-accent) 15%, transparent); }
+.monfate-cockpit .text-accent { color: var(--color-accent); }
+.monfate-cockpit .ring-accent\/30 { --tw-ring-color: color-mix(in oklch, var(--color-accent) 30%, transparent); }
+
+@keyframes monfate-livepulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.monfate-cockpit .animate-livepulse {
+  animation: monfate-livepulse 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .monfate-cockpit .animate-livepulse {
+    animation: none;
+  }
+}

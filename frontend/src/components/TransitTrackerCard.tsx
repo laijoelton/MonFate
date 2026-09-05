@@ -1,4 +1,4 @@
-import { Armchair, Bus, DoorOpen, Users } from "lucide-react";
+import { Accessibility, Armchair, Bus, DoorOpen, Users } from "lucide-react";
 import type { CapacityStatus, RampStatus, TransitVehicle } from "@/types/monfate";
 import { formatEta } from "@/lib/format";
 
@@ -66,6 +66,26 @@ export function TransitTrackerCard({ vehicle }: TransitTrackerCardProps) {
             Wheelchair accessible vehicle
           </div>
         )}
+        <div
+          className={`col-span-2 flex items-center gap-1.5 ${
+            vehicle.wheelchair_space_available
+              ? "text-emerald-700 dark:text-emerald-400"
+              : "text-zinc-500 dark:text-zinc-400"
+          }`}
+        >
+          <Accessibility aria-hidden className="h-3.5 w-3.5" />
+          {vehicle.wheelchair_space_available ? "Wheelchair space available" : "No wheelchair space"}
+        </div>
+        <div
+          className={`col-span-2 flex items-center gap-1.5 ${
+            vehicle.priority_seats_available
+              ? "text-emerald-700 dark:text-emerald-400"
+              : "text-zinc-500 dark:text-zinc-400"
+          }`}
+        >
+          <Armchair aria-hidden className="h-3.5 w-3.5" />
+          {vehicle.priority_seats_available ? "Priority seats available" : "No priority seats free"}
+        </div>
       </dl>
     </div>
   );

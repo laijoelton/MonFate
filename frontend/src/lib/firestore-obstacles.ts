@@ -10,10 +10,23 @@ import { db } from "./firebase";
 import type { ObstacleReport } from "@/types/monfate";
 import type { ObstacleDraft } from "@/components/ObstacleReportModal";
 
+/**
+ * Firestore-backed obstacle reports. Collection shape mirrors the
+ * `ObstacleReport` contract in types/monfate.ts exactly (minus `id`, which
+ * is the Firestore document id) — see AGENTS.md guardrail #4 on keeping
+ * contracts and their implementations in sync.
+ */
+
 const COLLECTION = "obstacles";
 
+/**
+ * Subscribes to live obstacle reports, newest first. Returns null if
+ * Firebase isn't configured — callers should keep using mock data in that
+ * case rather than treating it as an error.
+ */
 export function subscribeToObstacles(
   onChange: (obstacles: ObstacleReport[]) => void,
+  onError?: (error: Error) => void,
 ): Unsubscribe | null {
   if (!db) return null;
 
@@ -29,10 +42,12 @@ export function subscribeToObstacles(
     },
     (error) => {
       console.error("[MonFate] Failed to subscribe to obstacles:", error);
+      onError?.(error);
     },
   );
 }
 
+/** Writes a new obstacle report to Firestore. Throws if Firebase isn't configured. */
 export async function addObstacleReport(
   draft: ObstacleDraft,
   location: { lat: number; lng: number },
