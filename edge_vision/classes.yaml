@@ -23,11 +23,23 @@ accepted:
   - mobility_aid
 
 # Detection score floor — boxes below this are never drawn or considered.
-detection_confidence: 0.60
+# Set from a sweep over 166 held-out REAL photos using models/wheelchair_real.onnx
+# (see docs/MOBILITY_REAL_RUN.md). 0.50 fires on 87% of images; raising to 0.60
+# drops that to 80% for no precision gain, since the model's own precision is
+# already 0.84. Re-run the sweep if the checkpoint changes — these numbers are
+# properties of a specific model, not universal.
+detection_confidence: 0.50
 
 # An accepted-class detection scoring below this is downgraded to "other",
 # so a low-confidence guess never triggers a dispatch alert on its own.
-other_threshold: 0.70
+#
+# This is the sharper of the two thresholds and the easier one to get wrong: it
+# gates DISPATCH, not merely drawing. At 0.70 with the old synthetic weights,
+# strollers (which peaked at 0.47) could never dispatch at any detection floor —
+# the system saw them and refused to act, silently. Lowered to 0.60 on the real
+# checkpoint, which lifts dispatch from 51% to 60% of held-out images.
+# Whenever the model changes, re-measure this before trusting it.
+other_threshold: 0.60
 
 # Frames of agreement the gate needs before it emits an accepted event.
 # Higher than the industrial default: a false dispatch wastes a bus, and a
@@ -53,6 +65,11 @@ required_consecutive: 5
 #   5. python -m edge_vision.run --weights edge_vision/models/wheelchair.onnx \
 #          --backend onnx --source 0 --preview
 #
-# checkpoint_class_map:
-#   wheelchair: wheelchair
-#   person: null
+# ACTIVE: models/wheelchair_real.onnx is a 2-class checkpoint trained on real
+# Open Images photos. Open Images has no boxable stroller or ambulant class, so
+# those two contract entries have no detector behind them and will never fire
+# until a labelled stroller dataset exists. That is a data gap, not a bug — but
+# it does mean stroller boarding requests are currently invisible.
+checkpoint_class_map:
+  wheelchair: wheelchair
+  mobility_aid: mobility_aid
