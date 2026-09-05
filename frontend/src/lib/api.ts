@@ -19,7 +19,8 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export const getHealth = () => get<{ status: string; mock_data: boolean }>("/health");
+export const getHealth = () =>
+  get<{ status: string; mock_data: boolean; chat_provider: string }>("/health");
 export const getObstacles = () => get<ObstacleReport[]>("/api/v1/obstacles");
 export const getVehicles = () => get<TransitVehicle[]>("/api/v1/vehicles");
 export const getStops = () => get<TransitStop[]>("/api/v1/stops");

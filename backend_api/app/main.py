@@ -23,7 +23,7 @@ from app.pipeline import handle_vision_event
 from app.schemas.trust import ReportSignal
 from app.security import verify_api_key, verify_signature
 from app.services import dispatch, forecast
-from app.services.chat import get_chat_provider
+from app.services.chat import ChatProviderError, get_chat_provider
 from app.stops import STOP_NAMES, STOP_ORDER, location_of
 from app.stream import hub
 
@@ -62,7 +62,11 @@ _AUTH = [Depends(verify_api_key), Depends(verify_signature)]
 
 @app.get("/health", response_model=schemas.HealthOut, tags=["ops"])
 def health():
-    return schemas.HealthOut(status="ok", mock_data=settings.MOCK_DATA)
+    return schemas.HealthOut(
+        status="ok",
+        mock_data=settings.MOCK_DATA,
+        chat_provider=settings.CHAT_PROVIDER,
+    )
 
 
 # --- ingestion -------------------------------------------------------------
@@ -215,6 +219,8 @@ async def chat_stream(
             yield _sse("done", {})
         except asyncio.CancelledError:
             raise
+        except ChatProviderError as exc:
+            yield _sse("error", {"message": str(exc)})
         except Exception:
             yield _sse(
                 "error",

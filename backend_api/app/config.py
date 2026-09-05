@@ -9,6 +9,14 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+# Load the backend-only local file regardless of the directory uvicorn is
+# launched from. Existing process/Render variables keep precedence.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
 
 
 def _bool(name: str, default: str = "false") -> bool:
@@ -48,7 +56,7 @@ class Settings:
     # Citizen chat provider. Secrets remain backend-only.
     CHAT_PROVIDER: str = os.getenv("CHAT_PROVIDER", "mock").strip().lower()
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
 
 @lru_cache

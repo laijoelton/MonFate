@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from typing import Any
@@ -15,6 +16,23 @@ from app.schemas.chat import ChatActionProposal, ChatMessage
 
 settings = get_settings()
 proposal_adapter = TypeAdapter(ChatActionProposal)
+logger = logging.getLogger(__name__)
+
+
+class ChatProviderError(RuntimeError):
+    """Provider failure with a message safe to send to the citizen UI."""
+
+
+def gemini_error_message(status_code: int | None) -> str:
+    if status_code in (401, 403):
+        return "Gemini authentication failed. Check the private backend API key and try again."
+    if status_code == 404:
+        return "The configured Gemini model is unavailable for this API key."
+    if status_code == 429:
+        return "Gemini quota is temporarily unavailable. Please wait and try again."
+    if status_code == 400:
+        return "Gemini rejected the request. Check the configured model and backend logs."
+    return "Gemini is temporarily unavailable. Please try again."
 
 SYSTEM_PROMPT = """You are the SampAI transit assistant. Reply concisely in English using
 only the supplied transit snapshot. Explicitly label simulated information and admit when
@@ -98,10 +116,12 @@ class MockChatProvider(ChatProvider):
 class GeminiChatProvider(ChatProvider):
     async def stream(self, messages: list[ChatMessage], context: dict[str, Any]) -> AsyncIterator[dict]:
         if not settings.GEMINI_API_KEY:
-            raise RuntimeError("Gemini is not configured. Add GEMINI_API_KEY on the backend.")
+            raise ChatProviderError(
+                "Gemini is not configured. Add GEMINI_API_KEY to backend_api/.env."
+            )
 
         from google import genai
-        from google.genai import types
+        from google.genai import errors, types
 
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         contents = [
@@ -163,7 +183,6 @@ class GeminiChatProvider(ChatProvider):
                     system_instruction=SYSTEM_PROMPT + "\nSnapshot:\n" + json.dumps(context),
                     tools=[types.Tool(function_declarations=[assistance, obstacle])],
                     automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-                    temperature=0.2,
                 ),
             )
             async for chunk in stream:
@@ -171,6 +190,20 @@ class GeminiChatProvider(ChatProvider):
                     yield {"event": "text_delta", "data": {"text": chunk.text}}
                 for call in chunk.function_calls or []:
                     calls.append((call.name, dict(call.args or {})))
+        except errors.APIError as exc:
+            logger.warning(
+                "Gemini API request failed (status=%s, model=%s)",
+                exc.code,
+                settings.GEMINI_MODEL,
+            )
+            raise ChatProviderError(gemini_error_message(exc.code)) from exc
+        except ChatProviderError:
+            raise
+        except Exception as exc:
+            logger.exception("Gemini provider failed (model=%s)", settings.GEMINI_MODEL)
+            raise ChatProviderError(
+                "Gemini could not complete the response. Check the backend terminal and try again."
+            ) from exc
         finally:
             await client.aio.aclose()
 
@@ -195,4 +228,8 @@ class GeminiChatProvider(ChatProvider):
 
 
 def get_chat_provider() -> ChatProvider:
-    return GeminiChatProvider() if settings.CHAT_PROVIDER == "gemini" else MockChatProvider()
+    if settings.CHAT_PROVIDER == "gemini":
+        return GeminiChatProvider()
+    if settings.CHAT_PROVIDER == "mock":
+        return MockChatProvider()
+    raise RuntimeError(f"Unsupported CHAT_PROVIDER: {settings.CHAT_PROVIDER}")
