@@ -1,5 +1,5 @@
 """
-AccessMove AI
+SampAI
 RTOS Priority Scheduler Simulation
 
 This simulator represents the RTOS running inside a bus.
@@ -42,6 +42,7 @@ class RTOSSimulator:
 
         self.running = False
         self.worker_thread = None
+        self.periodic_thread = None
 
         self.logs = []
 
@@ -68,7 +69,6 @@ class RTOSSimulator:
 
         self.logs.append(log)
 
-        # Keep log size manageable
         self.logs = self.logs[-100:]
 
         print(
@@ -124,7 +124,7 @@ class RTOSSimulator:
         self.add_task(
             name="GPS Tracking",
             priority=4,
-            duration=10,
+            duration=1.5,
             description="Update live bus location.",
         )
 
@@ -133,7 +133,7 @@ class RTOSSimulator:
         self.add_task(
             name="Passenger Counting",
             priority=5,
-            duration=3,
+            duration=1,
             description="Calculate passenger count and crowd level.",
         )
 
@@ -142,7 +142,7 @@ class RTOSSimulator:
         self.add_task(
             name="Data Upload",
             priority=6,
-            duration=3,
+            duration=2,
             description="Synchronise historical bus data.",
         )
 
@@ -172,6 +172,37 @@ class RTOSSimulator:
             duration=2,
             description="Send emergency alert to central server immediately.",
         )
+
+    # ---------------------------------------------------------
+    # AUTOMATIC PERIODIC TASKS
+    # ---------------------------------------------------------
+
+    def periodic_task_loop(self):
+
+        last_gps = time.time()
+        last_passenger_count = time.time()
+        last_data_upload = time.time()
+
+        while self.running:
+
+            current_time = time.time()
+
+            # GPS every 2 seconds
+            if current_time - last_gps >= 2:
+                self.add_gps_task()
+                last_gps = current_time
+
+            # Passenger counting every 7 seconds
+            if current_time - last_passenger_count >= 7:
+                self.add_passenger_count_task()
+                last_passenger_count = current_time
+
+            # Data upload every 15 seconds
+            if current_time - last_data_upload >= 15:
+                self.add_data_upload_task()
+                last_data_upload = current_time
+
+            time.sleep(0.1)
 
     # ---------------------------------------------------------
     # CHECK FOR PRE-EMPTION
@@ -227,7 +258,6 @@ class RTOSSimulator:
                     ),
                 )
 
-                # Put unfinished task back into queue
                 resumed_task = RTOSTask(
                     name=task.name,
                     priority=task.priority,
@@ -310,7 +340,13 @@ class RTOSSimulator:
             daemon=True,
         )
 
+        self.periodic_thread = threading.Thread(
+            target=self.periodic_task_loop,
+            daemon=True,
+        )
+
         self.worker_thread.start()
+        self.periodic_thread.start()
 
     # ---------------------------------------------------------
     # STOP
