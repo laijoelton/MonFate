@@ -41,6 +41,18 @@ export const CYBERJAYA_ROUTES: TransitRoute[] = [
       { id: "tamarind", name: "Tamarind Square", location: { lat: 2.9087, lng: 101.6644 }, accessible: true },
     ],
   },
+  {
+    route_id: "C4",
+    name: "Innovation Loop",
+    color: "#9333ea",
+    stops: [
+      { id: "mdec", name: "MDEC Cyberjaya", location: { lat: 2.9197, lng: 101.6416 }, accessible: true },
+      { id: "cyberia", name: "Cyberia", location: { lat: 2.9252, lng: 101.6377 }, accessible: false },
+      { id: "mmu", name: "Multimedia University", location: { lat: 2.9275, lng: 101.6418 }, accessible: true },
+      { id: "dpulze", name: "D'Pulze Shopping Centre", location: { lat: 2.9219, lng: 101.6505 }, accessible: true },
+      { id: "terminal", name: "Cyberjaya Transport Terminal", location: { lat: 2.9213, lng: 101.6559 }, accessible: true },
+    ],
+  },
 ];
 
 /** Every unique stop across all routes, de-duplicated by id — for rendering stop markers once. */

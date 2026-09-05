@@ -9,10 +9,21 @@ export interface BusIssueOption {
   id: string;
   label: string;
   description: string;
-  updates: { ramp_status?: RampStatus; capacity_status?: CapacityStatus };
+  updates: {
+    ramp_status?: RampStatus;
+    capacity_status?: CapacityStatus;
+    wheelchair_space_available?: boolean;
+    priority_seats_available?: boolean;
+  };
 }
 
 const BUS_ISSUE_OPTIONS: BusIssueOption[] = [
+  {
+    id: "has_ramp",
+    label: "Has a working ramp",
+    description: "Confirming this bus has a ramp and it works.",
+    updates: { ramp_status: "deployed" },
+  },
   {
     id: "no_ramp",
     label: "No ramp / ramp fault",
@@ -20,10 +31,28 @@ const BUS_ISSUE_OPTIONS: BusIssueOption[] = [
     updates: { ramp_status: "fault" },
   },
   {
-    id: "ramp_fixed",
-    label: "Ramp working again",
-    description: "Confirming the ramp is back in service.",
-    updates: { ramp_status: "deployed" },
+    id: "wheelchair_space",
+    label: "Wheelchair space available",
+    description: "There's a working, unblocked wheelchair space on board.",
+    updates: { wheelchair_space_available: true },
+  },
+  {
+    id: "no_wheelchair_space",
+    label: "No wheelchair space",
+    description: "Space is blocked, occupied by luggage, or doesn't exist.",
+    updates: { wheelchair_space_available: false },
+  },
+  {
+    id: "priority_seats",
+    label: "Priority seats available",
+    description: "Priority/reserved seating is free right now.",
+    updates: { priority_seats_available: true },
+  },
+  {
+    id: "no_priority_seats",
+    label: "No priority seats free",
+    description: "Priority seating is occupied or unavailable.",
+    updates: { priority_seats_available: false },
   },
   {
     id: "crowded",
@@ -48,7 +77,7 @@ const BUS_ISSUE_OPTIONS: BusIssueOption[] = [
 interface BusReportModalProps {
   vehicles: TransitVehicle[];
   onClose: () => void;
-  onSubmit: (vehicleId: string, updates: BusIssueOption["updates"]) => void;
+  onSubmit: (vehicleId: string, routeId: string, option: BusIssueOption) => void;
 }
 
 export function BusReportModal({ vehicles, onClose, onSubmit }: BusReportModalProps) {
@@ -58,8 +87,9 @@ export function BusReportModal({ vehicles, onClose, onSubmit }: BusReportModalPr
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const issue = BUS_ISSUE_OPTIONS.find((o) => o.id === issueId);
-    if (!vehicleId || !issue) return;
-    onSubmit(vehicleId, issue.updates);
+    const vehicle = vehicles.find((v) => v.vehicle_id === vehicleId);
+    if (!vehicle || !issue) return;
+    onSubmit(vehicleId, vehicle.route_id, issue);
     onClose();
   };
 
@@ -72,7 +102,7 @@ export function BusReportModal({ vehicles, onClose, onSubmit }: BusReportModalPr
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between">
@@ -145,8 +175,11 @@ export function BusReportModal({ vehicles, onClose, onSubmit }: BusReportModalPr
             type="submit"
             className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
           >
-            Submit report
+            Submit for review
           </button>
+          <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+            An admin reviews reports before they update the map.
+          </p>
         </form>
       </div>
     </div>
