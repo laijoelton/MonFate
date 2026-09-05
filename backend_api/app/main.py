@@ -27,6 +27,7 @@ from app.services.rtos_simulator import rtos_simulator
 from app.services.chat import ChatProviderError, get_chat_provider
 from app.stops import STOP_NAMES, STOP_ORDER, location_of
 from app.stream import hub
+from app.visual_assistance import router as visual_assistance_router
 
 settings = get_settings()
 _active_chat_sessions: set[str] = set()
@@ -50,6 +51,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.include_router(visual_assistance_router)
 
 app.add_middleware(
     CORSMiddleware,
