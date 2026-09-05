@@ -209,6 +209,7 @@ export async function fetchForcedDetour(
   if (waypoints.length < 2) return null;
 
   const nudgeIndex = nearestWaypointIndex(waypoints, avoidLocation);
+<<<<<<< HEAD
   // 800m instead of the original 250m: at 250m, Google's road-snapping
   // frequently just puts the route back on the same street, since 250m
   // often isn't enough distance to force a genuinely different real road —
@@ -222,6 +223,13 @@ export async function fetchForcedDetour(
     [-1200, 0],
     [0, 1200],
     [0, -1200],
+=======
+  const offsetDirections: [number, number][] = [
+    [250, 250],
+    [-250, 250],
+    [250, -250],
+    [-250, -250],
+>>>>>>> 9e66937e642b429933a10f99a5aefeadea03f6d9
   ];
 
   let best: TrafficAwareRoute | null = null;
