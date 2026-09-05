@@ -8,6 +8,18 @@ from edge_vision.inference.base import Detection
 from edge_vision.tracking import BoxSmoother, filter_detections
 
 
+def _configured_detection_confidence() -> float:
+    """The deployed detection floor, read from the same config run.py reads."""
+    import pathlib
+
+    import yaml
+
+    cfg = yaml.safe_load(
+        (pathlib.Path(__file__).resolve().parents[1] / "classes.yaml").read_text()
+    )
+    return float(cfg["detection_confidence"])
+
+
 def detection(x=0, name="wheelchair", confidence=.9):
     return Detection(0, name, confidence, (x, 0, x+100, 100))
 
@@ -121,7 +133,11 @@ def test_preview_holds_and_age_never_enter_gate_or_events(monkeypatch, capsys, e
         def __init__(self, *a, **kw): pass
         def warmup(self): pass
         def infer(self, frame, conf):
-            assert conf == .6
+            # Assert the CONFIGURED floor reaches inference, not a literal.
+            # detection_confidence is a property of whichever checkpoint is
+            # deployed and is re-measured when the model changes, so pinning a
+            # number here breaks the suite on every legitimate retune.
+            assert conf == _configured_detection_confidence()
             # The backend deliberately ignores its threshold. Frame 5 must
             # reset the gate despite the preview retaining its previous box.
             return [detection(confidence=.59 if index[0] == 5 else .9)]
