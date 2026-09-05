@@ -80,3 +80,17 @@ class VisionEventRecord(Base):
 
 Index("ix_vision_events_stop_observed", VisionEventRecord.stop_id, VisionEventRecord.observed_at)
 Index("ix_obstacles_status", ObstacleRecord.status)
+
+
+class AssistanceRequestRecord(Base):
+    """Anonymous, explicitly confirmed boarding-assistance request."""
+
+    __tablename__ = "assistance_requests"
+
+    id = Column(String(64), primary_key=True)
+    client_request_id = Column(String(64), unique=True, nullable=True, index=True)
+    passenger_need = Column(String(200), nullable=False)
+    stop_id = Column(String(64), nullable=False, index=True)
+    bus_id = Column(String(64), nullable=True)
+    status = Column(String(20), nullable=False, default="pending")
+    timestamp = Column(DateTime(timezone=True), nullable=False, default=_utcnow)

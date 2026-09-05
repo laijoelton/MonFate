@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import ObstacleRecord, VehicleRecord, VisionEventRecord
+from app.models import AssistanceRequestRecord, ObstacleRecord, VehicleRecord, VisionEventRecord
+from app.schemas.assistance import AssistanceRequest, AssistanceRequestCreate
 from app.schemas.common import AccessibilityFeature, Coordinates
 from app.schemas.ingest import ObstacleReportCreate, VehicleTelemetryPayload, VisionEventPayload
 from app.schemas.obstacle import ObstacleReport
@@ -133,6 +134,50 @@ def to_vehicle(row: VehicleRecord) -> TransitVehicle:
         next_stop_id=row.next_stop_id,
         eta_seconds=row.eta_seconds,
         last_updated_at=_as_utc(row.last_updated_at),
+    )
+
+
+# --- assistance requests ----------------------------------------------------
+
+def create_assistance_request(
+    db: Session, payload: AssistanceRequestCreate
+) -> tuple[AssistanceRequest, bool]:
+    if payload.client_request_id:
+        existing = (
+            db.query(AssistanceRequestRecord)
+            .filter(AssistanceRequestRecord.client_request_id == payload.client_request_id)
+            .first()
+        )
+        if existing is not None:
+            return to_assistance_request(existing), False
+    row = AssistanceRequestRecord(
+        id=f"assist-{uuid.uuid4().hex[:10]}",
+        client_request_id=payload.client_request_id,
+        passenger_need=payload.passenger_need.strip(),
+        stop_id=payload.stop_id,
+        bus_id=payload.bus_id,
+        status="pending",
+        timestamp=datetime.now(timezone.utc),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return to_assistance_request(row), True
+
+
+def list_assistance_requests(db: Session) -> list[AssistanceRequest]:
+    rows = db.query(AssistanceRequestRecord).order_by(AssistanceRequestRecord.timestamp.desc()).all()
+    return [to_assistance_request(row) for row in rows]
+
+
+def to_assistance_request(row: AssistanceRequestRecord) -> AssistanceRequest:
+    return AssistanceRequest(
+        id=row.id,
+        passenger_need=row.passenger_need,
+        stop_id=row.stop_id,
+        bus_id=row.bus_id,
+        status=row.status,
+        timestamp=_as_utc(row.timestamp),
     )
 
 

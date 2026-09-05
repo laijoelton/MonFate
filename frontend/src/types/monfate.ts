@@ -55,9 +55,39 @@ export interface TransitVehicle {
   is_accessible: boolean;
   ramp_status: RampStatus;
   capacity_status: CapacityStatus;
+  wheelchair_space_available: boolean;
+  priority_seats_available: boolean;
   next_stop_id: string;
   eta_seconds: number;
   last_updated_at: string;
+}
+
+/** What a rider can filter buses by — separate from AccessibilityFeature
+ * (which describes stops/obstacles, not vehicles). */
+export type BusNeed = "ramp" | "wheelchair_space" | "priority_seat";
+
+export const BUS_NEED_LABELS: Record<BusNeed, string> = {
+  ramp: "Wheelchair Ramp",
+  wheelchair_space: "Wheelchair Space",
+  priority_seat: "Priority Seating",
+};
+
+/** A rider- or CV-submitted report about a specific bus's attributes,
+ * held as `status: "pending"` until an admin approves or rejects it — see
+ * `lib/firestore-vehicle-reports.ts`. */
+export type VehicleReportStatus = "pending" | "approved" | "rejected";
+
+export interface VehicleReport {
+  id: string;
+  vehicle_id: string;
+  route_id: string;
+  label: string;
+  updates: Partial<
+    Pick<TransitVehicle, "ramp_status" | "capacity_status" | "wheelchair_space_available" | "priority_seats_available">
+  >;
+  status: VehicleReportStatus;
+  reported_at: string;
+  reported_by: string | null;
 }
 
 export interface AccessibilityRoute {
@@ -134,6 +164,46 @@ export const DETECTION_LABELS: Record<string, string> = {
   ambulant: "Ambulant",
   other: "Other",
 };
+
+export type DispatchSeverity = "critical" | "warning" | "info";
+
+export type NeedType = "ramp" | "wheelchair_space" | "priority_seat";
+
+/** A citizen's planned trip with selected accessibility needs — feeds the
+ * admin dashboard's "Passenger accessibility requests" and demand views. */
+export interface TripRequest {
+  id: string;
+  from_stop_id: string;
+  to_stop_id: string;
+  needs: NeedType[];
+  estimated_duration_seconds: number | null;
+  requested_at: string;
+}
+
+export interface RouteStop {
+  id: string;
+  name: string;
+  location: Coordinates;
+  accessible: boolean;
+}
+
+export interface TransitRoute {
+  route_id: string;
+  name: string;
+  color: string;
+  stops: RouteStop[];
+}
+
+/** A road-level incident (accident, breakdown, closure) that forces buses
+ * on a route to detour — distinct from ObstacleReport, which is a
+ * pedestrian/stop-level accessibility issue. See lib/accident-simulation.ts. */
+export interface RouteIncident {
+  id: string;
+  route_id: string;
+  location: Coordinates;
+  description: string;
+  reported_at: string;
+}
 
 export const ACCESSIBILITY_FEATURE_LABELS: Record<AccessibilityFeature, string> = {
   wheelchair_ramp: "Wheelchair Ramp",

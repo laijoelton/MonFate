@@ -84,3 +84,4 @@ class ObstacleAck(BaseModel):
 class HealthOut(BaseModel):
     status: str
     mock_data: bool
+    chat_provider: str

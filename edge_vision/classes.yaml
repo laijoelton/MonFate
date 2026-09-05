@@ -4,8 +4,9 @@
 #
 # NOTE ON THE CURRENT WEIGHTS: models/detector.onnx and my_base_detector.pt were
 # pre-trained for a different task and DO NOT yet predict these classes. Run the
-# pipeline with --backend mock (synthetic detections cycling this list) until a
-# head is fine-tuned on labelled mobility-aid data. See models/README.md.
+# pipeline with --backend mock until a head is fine-tuned on labelled data.
+# Incompatible existing checkpoints now fail class-map validation. Missing
+# mobility.onnx weights fall back to explicitly simulated events. See models/README.md.
 names:
   - wheelchair
   - stroller
@@ -22,16 +23,53 @@ accepted:
   - mobility_aid
 
 # Detection score floor — boxes below this are never drawn or considered.
-detection_confidence: 0.20
+# Set from a sweep over 166 held-out REAL photos using models/wheelchair_real.onnx
+# (see docs/MOBILITY_REAL_RUN.md). 0.50 fires on 87% of images; raising to 0.60
+# drops that to 80% for no precision gain, since the model's own precision is
+# already 0.84. Re-run the sweep if the checkpoint changes — these numbers are
+# properties of a specific model, not universal.
+detection_confidence: 0.50
 
 # An accepted-class detection scoring below this is downgraded to "other",
 # so a low-confidence guess never triggers a dispatch alert on its own.
-other_threshold: 0.70
+#
+# This is the sharper of the two thresholds and the easier one to get wrong: it
+# gates DISPATCH, not merely drawing. At 0.70 with the old synthetic weights,
+# strollers (which peaked at 0.47) could never dispatch at any detection floor —
+# the system saw them and refused to act, silently. Lowered to 0.60 on the real
+# checkpoint, which lifts dispatch from 51% to 60% of held-out images.
+# Whenever the model changes, re-measure this before trusting it.
+other_threshold: 0.60
 
 # Frames of agreement the gate needs before it emits an accepted event.
 # Higher than the industrial default: a false dispatch wastes a bus, and a
 # passenger waiting at a stop is a persistent signal, not a transient one.
 required_consecutive: 5
 
-# Reported in every event so downstream can tell which model produced it.
-model_version: "monfate-accessibility-v0-mock"
+# Runtime model_version is a checkpoint SHA-256 fingerprint, or "mock".
+
+# Adapting a third-party checkpoint (ONNX backend only).
+#
+# A checkpoint whose own labels differ from `names` above is rejected by
+# default — a silent index mismatch would file strollers as wheelchairs. To use
+# one, declare the mapping here and it is validated instead of guessed. Keys are
+# the CHECKPOINT's labels, values are labels from `names`, or null to discard.
+# Every checkpoint class must appear, so a class added upstream cannot quietly
+# start firing dispatch events.
+#
+# To use the Roboflow wheelchair model locally (no frames leave the device):
+#   1. Open the `wheelchair-9qvfx` project version 3 on roboflow.com
+#   2. Download the version with format "ONNX" (not the hosted API snippet)
+#   3. Save it as edge_vision/models/wheelchair.onnx
+#   4. Uncomment the map below, correcting the keys to the exported label names
+#   5. python -m edge_vision.run --weights edge_vision/models/wheelchair.onnx \
+#          --backend onnx --source 0 --preview
+#
+# ACTIVE: models/wheelchair_real.onnx is a 2-class checkpoint trained on real
+# Open Images photos. Open Images has no boxable stroller or ambulant class, so
+# those two contract entries have no detector behind them and will never fire
+# until a labelled stroller dataset exists. That is a data gap, not a bug — but
+# it does mean stroller boarding requests are currently invisible.
+checkpoint_class_map:
+  wheelchair: wheelchair
+  mobility_aid: mobility_aid
