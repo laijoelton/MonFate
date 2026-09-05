@@ -1,0 +1,154 @@
+"""ONNX Runtime backend.
+
+Handles two export layouts, auto-detected from the ONNX ``metadata_props``:
+
+  * ``cxcywh_obj_cls_pixels`` — our proprietary CustomDetector
+    (edge_vision/models/custom_detector.py). Output ``(1, N, 5 + C)`` =
+    ``[cx, cy, w, h  (input pixels), obj_logit, cls_logits...]``, trained on a
+    plain stretch-resize to ``img_size``.
+  * YOLOv8/YOLO11-style — output ``(1, 4 + C, N)`` (or its transpose),
+    class scores only, letterboxed input.
+
+Post-processing (both): sigmoid where needed, ``score = obj * max(cls)``,
+confidence threshold, un-normalise coords to the ORIGINAL frame, vectorised
+per-class NMS. Returns ``Detection`` objects straight into ``run.py``'s loop.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+from .base import Detection, Detector
+
+
+# --------------------------------------------------------------------------- #
+# resize helpers
+# --------------------------------------------------------------------------- #
+def _letterbox(img: np.ndarray, new: int) -> tuple[np.ndarray, float, tuple[int, int]]:
+    h, w = img.shape[:2]
+    r = min(new / h, new / w)
+    nh, nw = int(round(h * r)), int(round(w * r))
+    resized = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
+    canvas = np.full((new, new, 3), 114, dtype=np.uint8)
+    top, left = (new - nh) // 2, (new - nw) // 2
+    canvas[top : top + nh, left : left + nw] = resized
+    return canvas, r, (left, top)
+
+
+def _stretch(img: np.ndarray, new: int) -> tuple[np.ndarray, float, float]:
+    h, w = img.shape[:2]
+    return cv2.resize(img, (new, new), interpolation=cv2.INTER_LINEAR), new / w, new / h
+
+
+def _sigmoid(x: np.ndarray) -> np.ndarray:
+    return 1.0 / (1.0 + np.exp(-np.clip(x, -30, 30)))
+
+
+def _nms(boxes: np.ndarray, scores: np.ndarray, iou_thres: float) -> list[int]:
+    if len(boxes) == 0:
+        return []
+    x1, y1, x2, y2 = boxes.T
+    areas = (x2 - x1) * (y2 - y1)
+    order = scores.argsort()[::-1]
+    keep: list[int] = []
+    while order.size > 0:
+        i = order[0]
+        keep.append(int(i))
+        xx1 = np.maximum(x1[i], x1[order[1:]])
+        yy1 = np.maximum(y1[i], y1[order[1:]])
+        xx2 = np.minimum(x2[i], x2[order[1:]])
+        yy2 = np.minimum(y2[i], y2[order[1:]])
+        inter = np.maximum(0, xx2 - xx1) * np.maximum(0, yy2 - yy1)
+        iou = inter / (areas[i] + areas[order[1:]] - inter + 1e-9)
+        order = order[1:][iou <= iou_thres]
+    return keep
+
+
+# --------------------------------------------------------------------------- #
+class OnnxDetector(Detector):
+    def __init__(
+        self,
+        weights: str | Path,
+        class_names: list[str] | None = None,
+        imgsz: int = 416,
+        device: str = "auto",
+        iou_thres: float = 0.45,
+    ):
+        import onnxruntime as ort  # lazy
+
+        providers = ["CPUExecutionProvider"]
+        if device != "cpu" and "CUDAExecutionProvider" in ort.get_available_providers():
+            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        self._sess = ort.InferenceSession(str(weights), providers=providers)
+        self._input = self._sess.get_inputs()[0].name
+        self._iou = iou_thres
+
+        meta = self._sess.get_modelmeta().custom_metadata_map or {}
+        self._layout = meta.get("layout", "yolo")
+        self._imgsz = int(meta.get("img_size", imgsz))
+        self.class_names = class_names or (
+            meta["classes"].split(",") if meta.get("classes") else []
+        )
+
+    # -- preprocessing ---------------------------------------------------- #
+    def _preprocess(self, frame: np.ndarray):
+        if self._layout.startswith("cxcywh_obj_cls"):
+            canvas, sx, sy = _stretch(frame, self._imgsz)
+            info = ("stretch", sx, sy)
+        else:
+            canvas, r, (dx, dy) = _letterbox(frame, self._imgsz)
+            info = ("letterbox", r, dx, dy)
+        blob = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+        return np.transpose(blob, (2, 0, 1))[None], info
+
+    def _to_frame_xyxy(self, cx, cy, bw, bh, info) -> np.ndarray:
+        x1, y1, x2, y2 = cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2
+        if info[0] == "stretch":
+            _, sx, sy = info
+            return np.stack([x1 / sx, y1 / sy, x2 / sx, y2 / sy], axis=1)
+        _, r, dx, dy = info
+        return np.stack([(x1 - dx) / r, (y1 - dy) / r, (x2 - dx) / r, (y2 - dy) / r], axis=1)
+
+    # -- inference ------------------------------------------------------- #
+    def infer(self, frame: np.ndarray, conf: float = 0.25) -> list[Detection]:
+        blob, info = self._preprocess(frame)
+        raw = self._sess.run(None, {self._input: blob})[0][0]  # (N, K) or (K, N)
+
+        if self._layout.startswith("cxcywh_obj_cls"):
+            pred = raw  # (N, 5 + C)
+            boxes_xywh = pred[:, :4]
+            obj = _sigmoid(pred[:, 4])
+            cls = _sigmoid(pred[:, 5:])
+            class_ids = cls.argmax(axis=1)
+            scores = obj * cls.max(axis=1)
+        else:
+            pred = raw if raw.shape[0] > raw.shape[1] else raw.T  # -> (N, 4 + C)
+            boxes_xywh = pred[:, :4]
+            cls = pred[:, 4:]
+            class_ids = cls.argmax(axis=1)
+            scores = cls.max(axis=1)
+
+        m = scores >= conf
+        boxes_xywh, class_ids, scores = boxes_xywh[m], class_ids[m], scores[m]
+        if len(scores) == 0:
+            return []
+
+        cx, cy, bw, bh = boxes_xywh.T
+        xyxy = self._to_frame_xyxy(cx, cy, bw, bh, info)
+        h, w = frame.shape[:2]
+        xyxy[:, [0, 2]] = xyxy[:, [0, 2]].clip(0, w)
+        xyxy[:, [1, 3]] = xyxy[:, [1, 3]].clip(0, h)
+
+        out: list[Detection] = []
+        for cid in np.unique(class_ids):
+            idx = np.where(class_ids == cid)[0]
+            for k in _nms(xyxy[idx], scores[idx], self._iou):
+                j = idx[k]
+                name = self.class_names[cid] if cid < len(self.class_names) else str(int(cid))
+                out.append(
+                    Detection(int(cid), name, float(scores[j]), tuple(float(v) for v in xyxy[j]))
+                )
+        return out

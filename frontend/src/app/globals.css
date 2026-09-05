@@ -1,26 +1,83 @@
 @import "tailwindcss";
 
+/* MonFate cockpit theme — slate ground, one vivid accent, status hues.
+   Ported from the frame's industrial dashboard and retuned for transit. */
+@theme {
+  --color-accent: oklch(0.72 0.15 230);
+  --color-accent-soft: oklch(0.72 0.15 230 / 0.12);
+
+  --color-ok: oklch(0.75 0.16 155);
+  --color-warn: oklch(0.8 0.15 85);
+  --color-down: oklch(0.68 0.2 25);
+  --color-idle: oklch(0.6 0.02 260);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background:
+    radial-gradient(60rem 60rem at 80% -10%, oklch(0.3 0.06 250 / 0.35), transparent 60%),
+    radial-gradient(50rem 50rem at -10% 20%, oklch(0.3 0.05 190 / 0.25), transparent 55%),
+    oklch(0.16 0.015 260);
+  color: oklch(0.9 0.01 260);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism card surface */
+@utility glass {
+  background: oklch(0.24 0.02 260 / 0.55);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid oklch(0.5 0.02 260 / 0.18);
+  box-shadow:
+    0 1px 0 0 oklch(1 0 0 / 0.04) inset,
+    0 20px 40px -24px oklch(0 0 0 / 0.6);
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* subtle pulse for "live" indicators */
+@keyframes livepulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.animate-livepulse {
+  animation: livepulse 1.8s ease-in-out infinite;
+}
+
+/* A dispatch alert must announce itself without relying on color alone. */
+@keyframes alertsweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+.animate-alertsweep {
+  animation: alertsweep 2.4s linear infinite;
+}
+
+/* Respect users who have asked the OS to reduce motion — this is an
+   accessibility product; animation must never be mandatory. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-livepulse,
+  .animate-alertsweep {
+    animation: none;
+  }
 }

@@ -5,10 +5,15 @@ __pycache__/
 venv/
 .pytest_cache/
 
-# Environment
+# Environment — examples are committed, real values never are
 .env
 .env.local
 .env.*.local
+!.env.example
+
+# Local databases (SQLite dev/demo artifacts)
+*.db
+*.db-journal
 
 # Editor / OS
 .DS_Store
