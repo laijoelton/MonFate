@@ -108,10 +108,28 @@ no working ramp would report a "handled" boarding that cannot happen.
 | 4 | Backend API: ingest, WebSocket stream, transit simulation | Claude | ✅ Done |
 | 5 | Trust consensus, spatial, forecasting, dispatch services | Claude | ✅ Done |
 | 6 | Frontend wired to live backend (cockpit) | Claude | ✅ Done |
-| 7 | Fine-tuned detection head on real mobility-aid data | Codex | ⬜ Not started |
+| 7 | Fine-tuned detection head on real mobility-aid data | Codex | In progress — validated runtime ready; real-data training pending |
 | 8 | Route scoring endpoint + frontend route rendering | Both | ⬜ Not started |
 | 9 | Firmware / RTOS station node beyond the simulator | Codex | ⬜ Not started |
 | 10 | End-to-end demo polish, WCAG audit | Both | ⬜ Not started |
+
+### Milestone 7 — validated mobility runtime (2026-09-05)
+
+- `edge_vision/detector.py` selects validated YOLO/PyTorch or ONNX inference,
+  fingerprints real weights, and uses explicitly simulated mock detections
+  only when weights are absent or simulation is requested. Invalid existing
+  checkpoints fail closed; CPU fallback stays on the same artifact.
+- `inference/validation.py` checks ordered class maps; PyTorch and ONNX loaders
+  reject incompatible metadata and head sizes. Legacy weights are not mobility
+  weights. Unvalidated TensorRT/TFLite backends cannot dispatch via the runner.
+- The runner enforces exactly five frames and the three dispatch classes;
+  `gate.py` also defaults to five. The metadata-only emitter now posts to
+  `/api/v1/vision/events`. Shared wire contracts are unchanged.
+- Tests cover class mismatch, real YOLOv8 checkpoint loading and ONNX export,
+  ONNX inference, interrupted/ambiguous/low-confidence sequences, simulation,
+  and image-free JSON transport: **36 runtime tests passed** in the local
+  Python 3.12 environment, including a real untrained YOLOv8 export round trip.
+  No mobility accuracy claim is made by these synthetic runtime checks.
 
 The full layer-by-layer feature breakdown and changelog live in
 [README.md](../README.md#current-system-architecture--implemented-features).

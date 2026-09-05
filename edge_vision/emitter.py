@@ -10,7 +10,7 @@ T" and nothing else — no frames, no faces, no re-identifiable attributes.
 
 Sinks:
   - stdout : one JSON line per event (default)
-  - http   : POST to <base>/api/v1/events  with X-API-Key
+  - http   : POST to <base>/api/v1/vision/events  with X-API-Key
   - mqtt   : publish JSON to a topic (needs paho-mqtt)
 """
 
@@ -149,7 +149,7 @@ class EventEmitter:
             for attempt in range(3):
                 try:
                     r = requests.post(
-                        f"{self.http_base}/api/v1/events",
+                        f"{self.http_base}/api/v1/vision/events",
                         data=payload,
                         headers={"Content-Type": "application/json", "X-API-Key": self.api_key or ""},
                         timeout=5,

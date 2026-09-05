@@ -24,7 +24,7 @@ import yaml
 
 from .gate import ConsecutiveDetectionGate
 from .emitter import EventEmitter
-from .inference.factory import load_detector
+from .detector import MobilityDetector, DISPATCH_CLASSES
 
 
 # --------------------------------------------------------------------------- #
@@ -98,11 +98,11 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--source", default=os.getenv("SYS_VISION_SOURCE", "0"),
                    help="webcam index | file | url | 'mock' | 'loop:<file>'")
-    p.add_argument("--weights", default=os.getenv("SYS_VISION_MODEL", "edge_vision/models/detector.onnx"))
+    p.add_argument("--weights", default=os.getenv("SYS_VISION_MODEL", "edge_vision/models/mobility.onnx"))
     p.add_argument("--backend", default=os.getenv("SYS_VISION_BACKEND"),
-                   choices=[None, "pytorch", "onnx", "tflite", "tensorrt", "mock"])
+                   choices=["pytorch", "onnx", "mock"])
     p.add_argument("--fallback", action="store_true", default=_env_bool("SYS_VISION_FALLBACK", True),
-                   help="TensorRT -> ONNX -> PyTorch, GPU -> CPU (default on)")
+                   help="retry the same validated artifact on CPU (default on)")
     p.add_argument("--no-fallback", dest="fallback", action="store_false")
     p.add_argument("--mock", action="store_true", help="shortcut for --source mock --backend mock")
     p.add_argument("--config", default="edge_vision/classes.yaml", type=Path)
@@ -112,7 +112,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--emit", metavar="HTTP_BASE", default=os.getenv("SYS_API_BASE_URL") or None)
     p.add_argument("--mqtt", metavar="HOST:PORT")
     p.add_argument("--api-key", default=os.getenv("SYS_API_KEY"))
-    p.add_argument("--simulation", action="store_true", help="mark every event is_simulation=true")
+    p.add_argument("--simulation", action="store_true", help="use mock inference and mark events simulated")
     return p.parse_args()
 
 
@@ -133,23 +133,27 @@ def main() -> None:
     accepted: set[str] = set(cfg.get("accepted", names))
     det_conf = float(cfg.get("detection_confidence", 0.20))
     other_thr = float(cfg.get("other_threshold", 0.70))
-    required = int(cfg.get("required_consecutive", 3))
-    model_version = str(cfg.get("model_version", "unknown"))
+    required = cfg.get("required_consecutive", 5)
+    if type(required) is not int or required != 5:
+        raise ValueError("mobility deployment requires exactly 5 consecutive frames")
+    if accepted != DISPATCH_CLASSES:
+        raise ValueError("accepted classes must be wheelchair, stroller, mobility_aid")
+    if not 0 <= det_conf <= other_thr <= 1:
+        raise ValueError("confidence thresholds must satisfy 0 <= detection <= acceptance <= 1")
 
-    detector = load_detector(
+    detector = MobilityDetector(
         args.weights, backend=args.backend, class_names=names,
-        imgsz=args.imgsz, device=args.device, fallback=args.fallback and args.backend != "mock",
+        imgsz=args.imgsz, device=args.device, fallback=args.fallback, simulation=args.simulation,
     )
-    if args.backend == "mock":
-        model_version = "mock"
+    model_version = detector.model_version
     detector.warmup()
     gate = ConsecutiveDetectionGate(accepted, required)
 
     sink = "http" if args.emit else "mqtt" if args.mqtt else "stdout"
     emitter = EventEmitter(
         device_id=os.getenv("SYS_STOP_ID", "stop_01"), model_version=model_version,
-        allowed_labels=accepted | {"other"}, sink=sink, http_base=args.emit,
-        api_key=args.api_key, mqtt_broker=args.mqtt, is_simulation=args.simulation,
+        allowed_labels=accepted, sink=sink, http_base=args.emit,
+        api_key=args.api_key, mqtt_broker=args.mqtt, is_simulation=detector.is_simulation,
     )
 
     def resolve_label(name: str, conf: float) -> str:

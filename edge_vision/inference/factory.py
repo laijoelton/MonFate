@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 
 from .base import Detection, Detector
+from .validation import ClassMapError
 
 _EXT_TO_BACKEND = {".pt": "pytorch", ".onnx": "onnx", ".tflite": "tflite", ".engine": "tensorrt"}
 # preference order for the fallback chain
@@ -85,7 +86,7 @@ def _construct(backend, weights, class_names, imgsz, device) -> Detector:
     if backend == "pytorch":
         from .pytorch_backend import PyTorchDetector
 
-        return PyTorchDetector(weights, class_names=class_names, device=device)
+        return PyTorchDetector(weights, class_names=class_names, device=device, imgsz=imgsz)
     if backend == "onnx":
         from .onnx_backend import OnnxDetector
 
@@ -118,6 +119,8 @@ def _load_with_fallback(weights, class_names, imgsz, device) -> Detector:
                 det.warmup()
                 print(f"[vision] inference: {be} on {dev}  ({path.name})")
                 return det
+            except ClassMapError:
+                raise  # A different device cannot repair incompatible class semantics.
             except Exception as exc:  # noqa: BLE001 — any init failure -> next candidate
                 last_err = exc
                 print(f"[vision] {be}/{dev} unavailable: {exc}")

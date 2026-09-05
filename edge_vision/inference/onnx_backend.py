@@ -22,6 +22,7 @@ import cv2
 import numpy as np
 
 from .base import Detection, Detector
+from .validation import ClassMapError, validate_class_names
 
 
 # --------------------------------------------------------------------------- #
@@ -89,9 +90,25 @@ class OnnxDetector(Detector):
         meta = self._sess.get_modelmeta().custom_metadata_map or {}
         self._layout = meta.get("layout", "yolo")
         self._imgsz = int(meta.get("img_size", imgsz))
-        self.class_names = class_names or (
-            meta["classes"].split(",") if meta.get("classes") else []
-        )
+        self.class_names = validate_class_names(meta.get("names") or meta.get("classes"), class_names)
+        if self._layout not in {"yolo", "cxcywh_obj_cls_pixels"}:
+            raise ClassMapError(f"unsupported output layout: {self._layout}")
+        outputs = self._sess.get_outputs()
+        columns = len(self.class_names) + (5 if self._layout.startswith("cxcywh_obj_cls") else 4)
+        if len(outputs) != 1 or len(outputs[0].shape) != 3:
+            raise ClassMapError("expected one raw detection head output")
+        dims = outputs[0].shape[1:]
+        if all(isinstance(d, int) for d in dims) and (
+            dims[1] != columns if self._layout.startswith("cxcywh_obj_cls") else columns not in dims
+        ):
+            raise ClassMapError("output head size does not match class map")
+        shape = self._sess.get_inputs()[0].shape
+        if len(shape) != 4 or shape[1] != 3:
+            raise ClassMapError("expected NCHW RGB input")
+        if isinstance(shape[2], int) and isinstance(shape[3], int):
+            if shape[2] != shape[3]:
+                raise ClassMapError("expected square model input")
+            self._imgsz = shape[2]
 
     # -- preprocessing ---------------------------------------------------- #
     def _preprocess(self, frame: np.ndarray):
@@ -116,6 +133,16 @@ class OnnxDetector(Detector):
     def infer(self, frame: np.ndarray, conf: float = 0.25) -> list[Detection]:
         blob, info = self._preprocess(frame)
         raw = self._sess.run(None, {self._input: blob})[0][0]  # (N, K) or (K, N)
+        columns = len(self.class_names) + (5 if self._layout.startswith("cxcywh_obj_cls") else 4)
+        if raw.ndim != 2:
+            raise ClassMapError("expected raw detection head output")
+        if self._layout.startswith("cxcywh_obj_cls"):
+            if raw.shape[1] != columns:
+                raise ClassMapError("output head size does not match class map")
+        elif raw.shape[0] == columns:
+            raw = raw.T
+        elif raw.shape[1] != columns:
+            raise ClassMapError("output head size does not match class map")
 
         if self._layout.startswith("cxcywh_obj_cls"):
             pred = raw  # (N, 5 + C)
@@ -125,7 +152,7 @@ class OnnxDetector(Detector):
             class_ids = cls.argmax(axis=1)
             scores = obj * cls.max(axis=1)
         else:
-            pred = raw if raw.shape[0] > raw.shape[1] else raw.T  # -> (N, 4 + C)
+            pred = raw
             boxes_xywh = pred[:, :4]
             cls = pred[:, 4:]
             class_ids = cls.argmax(axis=1)

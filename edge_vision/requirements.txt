@@ -5,7 +5,8 @@ pyyaml>=6.0
 requests>=2.31
 
 # --- pick the inference backend(s) you need ---
-# ultralytics>=8.3       # pytorch_backend  (.pt)  -- external YOLO checkpoints
+ultralytics>=8.3,<9      # YOLOv8 training and validated .pt inference
+pytest>=8               # edge regression suite
 onnxruntime>=1.17        # onnx_backend     (.onnx) -- our detector.onnx  (or onnxruntime-gpu)
 # tflite-runtime>=2.14   # tflite_backend   (.tflite)
 # tensorrt               # tensorrt_backend (.engine) -- install via JetPack on Jetson

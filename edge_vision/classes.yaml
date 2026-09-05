@@ -4,8 +4,9 @@
 #
 # NOTE ON THE CURRENT WEIGHTS: models/detector.onnx and my_base_detector.pt were
 # pre-trained for a different task and DO NOT yet predict these classes. Run the
-# pipeline with --backend mock (synthetic detections cycling this list) until a
-# head is fine-tuned on labelled mobility-aid data. See models/README.md.
+# pipeline with --backend mock until a head is fine-tuned on labelled data.
+# Incompatible existing checkpoints now fail class-map validation. Missing
+# mobility.onnx weights fall back to explicitly simulated events. See models/README.md.
 names:
   - wheelchair
   - stroller
@@ -33,5 +34,4 @@ other_threshold: 0.70
 # passenger waiting at a stop is a persistent signal, not a transient one.
 required_consecutive: 5
 
-# Reported in every event so downstream can tell which model produced it.
-model_version: "monfate-accessibility-v0-mock"
+# Runtime model_version is a checkpoint SHA-256 fingerprint, or "mock".

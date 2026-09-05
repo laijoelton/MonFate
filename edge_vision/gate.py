@@ -22,7 +22,7 @@ class GateResult:
 
 
 class ConsecutiveDetectionGate:
-    def __init__(self, accepted_classes: set[str], required_consecutive: int = 3) -> None:
+    def __init__(self, accepted_classes: set[str], required_consecutive: int = 5) -> None:
         if not isinstance(required_consecutive, int) or required_consecutive < 1:
             raise ValueError("required_consecutive must be a positive integer")
         self.accepted = frozenset(accepted_classes)

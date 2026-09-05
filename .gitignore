@@ -4,6 +4,11 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+.vision-test-tmp/
+edge_vision/runs/
+edge_vision/datasets/
+edge_vision/models/mobility*.pt
+edge_vision/models/mobility*.onnx
 
 # Environment — examples are committed, real values never are
 .env
