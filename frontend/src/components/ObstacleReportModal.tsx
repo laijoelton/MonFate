@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type {
   AccessibilityFeature,
+  Coordinates,
   ObstacleReport,
   ObstacleType,
 } from "@/types/monfate";
@@ -11,12 +12,14 @@ import {
   ACCESSIBILITY_FEATURE_LABELS,
   OBSTACLE_TYPE_LABELS,
 } from "@/types/monfate";
+import { ALL_STOPS } from "@/lib/cyberjaya-routes";
 import { TrustBadge } from "@/components/TrustBadge";
 
 export interface ObstacleDraft {
   obstacle_type: ObstacleType;
   description: string;
   affects: AccessibilityFeature[];
+  location: Coordinates;
 }
 
 interface ObstacleReportModalProps {
@@ -44,6 +47,7 @@ export function ObstacleReportModal({
   const [obstacleType, setObstacleType] = useState<ObstacleType>("blocked_ramp");
   const [description, setDescription] = useState("");
   const [affects, setAffects] = useState<Set<AccessibilityFeature>>(new Set());
+  const [locationStopId, setLocationStopId] = useState(ALL_STOPS[0]?.id ?? "");
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -64,10 +68,12 @@ export function ObstacleReportModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const stop = ALL_STOPS.find((s) => s.id === locationStopId);
     onSubmitReport({
       obstacle_type: obstacleType,
       description,
       affects: Array.from(affects),
+      location: stop?.location ?? ALL_STOPS[0].location,
     });
     setDescription("");
     setAffects(new Set());
@@ -81,7 +87,7 @@ export function ObstacleReportModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="obstacle-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div
@@ -149,6 +155,27 @@ export function ObstacleReportModal({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label
+                htmlFor="obstacle-location"
+                className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+              >
+                Location
+              </label>
+              <select
+                id="obstacle-location"
+                value={locationStopId}
+                onChange={(e) => setLocationStopId(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              >
+                {ALL_STOPS.map((stop) => (
+                  <option key={stop.id} value={stop.id}>
+                    {stop.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label
                 htmlFor="obstacle-type"

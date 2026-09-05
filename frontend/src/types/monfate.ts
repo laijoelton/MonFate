@@ -72,6 +72,20 @@ export interface AccessibilityRoute {
   computed_at: string;
 }
 
+export interface RouteStop {
+  id: string;
+  name: string;
+  location: Coordinates;
+  accessible: boolean;
+}
+
+export interface TransitRoute {
+  route_id: string;
+  name: string;
+  color: string;
+  stops: RouteStop[];
+}
+
 export const ACCESSIBILITY_FEATURE_LABELS: Record<AccessibilityFeature, string> = {
   wheelchair_ramp: "Wheelchair Ramp",
   tactile_paving: "Tactile Paving",
