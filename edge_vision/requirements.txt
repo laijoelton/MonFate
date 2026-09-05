@@ -1,0 +1,20 @@
+# Base pipeline (run.py, gate, emitter, mock mode)
+numpy>=1.24
+opencv-python>=4.8
+pyyaml>=6.0
+requests>=2.31
+
+# --- pick the inference backend(s) you need ---
+# ultralytics>=8.3       # pytorch_backend  (.pt)  -- external YOLO checkpoints
+onnxruntime>=1.17        # onnx_backend     (.onnx) -- our detector.onnx  (or onnxruntime-gpu)
+# tflite-runtime>=2.14   # tflite_backend   (.tflite)
+# tensorrt               # tensorrt_backend (.engine) -- install via JetPack on Jetson
+
+# --- proprietary detector: train + export (pretrain.py / finetune.py) ---
+torch>=2.2               # CPU wheel: pip install torch --index-url https://download.pytorch.org/whl/cpu
+onnx>=1.16
+pillow>=10.0
+tqdm>=4.66
+
+# Optional: MQTT event sink
+# paho-mqtt>=2.0

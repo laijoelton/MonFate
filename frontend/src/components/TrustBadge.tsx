@@ -7,21 +7,22 @@ interface TrustBadgeProps {
   nowIso: string;
 }
 
+/** Trust threshold above which the backend treats a report as actionable. */
+const ACTIONABLE = 70;
+
 export function TrustBadge({ trustScore, lastVerifiedAt, nowIso }: TrustBadgeProps) {
-  const isTrusted = trustScore >= 70;
+  const isTrusted = trustScore >= ACTIONABLE;
   const Icon = isTrusted ? ShieldCheck : ShieldQuestion;
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-        isTrusted
-          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
-          : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
+        isTrusted ? "bg-ok/15 text-ok ring-ok/30" : "bg-warn/15 text-warn ring-warn/30"
       }`}
     >
       <Icon aria-hidden className="h-3.5 w-3.5" />
-      Verified {formatRelativeTime(lastVerifiedAt, nowIso)} &bull; {Math.round(trustScore)}%
-      Trust Score
+      Verified {formatRelativeTime(lastVerifiedAt, nowIso)} &bull; {Math.round(trustScore)}% Trust
+      Score
     </span>
   );
 }

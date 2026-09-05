@@ -39,10 +39,10 @@ consensus system to route riders around real-time accessibility failures.
   ingests obstacle reports and vehicle telemetry, computes trust consensus
   scores, and will eventually serve routed paths weighted by live
   accessibility state.
-- **Edge / CV simulation** (Codex): simulates the sensor and RTOS logic
-  that would run on physical transit-stop hardware — obstacle detection
-  events and vehicle position/telemetry streams — so the API and frontend
-  can be developed against realistic data before real hardware exists.
+- **Edge vision** (`edge_vision/`): the station-CCTV pipeline — source →
+  inference → confirmation gate → image-free emitter, with four
+  interchangeable backends and a dependency-free mock. Runs on
+  transit-stop hardware; ships labels, never frames.
 
 ## Shared contracts
 
@@ -79,23 +79,42 @@ Key fields: `route_id`, `origin`, `destination`, `waypoints`, `accessibility_sco
 `estimated_duration_seconds`, `computed_at`.
 
 ### Trust consensus model
-Backs `ObstacleReport.trust_score`. Combines report count, reporter
-diversity, recency decay, and (eventually) CV-detection corroboration
-into a single 0–100 score shown to riders as e.g. *"Verified 12m ago •
-94% Trust Score."*
+Backs `ObstacleReport.trust_score`. Implemented in
+`backend_api/app/services/trust.py`. Combines weighted signal sources
+(rider 1.0 / CV 1.6 / operator 2.4), a saturating corroboration curve, a
+reporter-diversity multiplier that saturates at 5 reporters, and
+exponential recency decay (3h half-life) into a single 0–100 score shown
+to riders as e.g. *"Verified 12m ago • 94% Trust Score."*
+
+Observed curve: 1 report → 48.4, 3 → 72.1, 7 → 95.2. Those same 7 signals
+decay to 56.0 after three hours, dropping below the actionable threshold
+(70) — a stale obstacle stops rerouting riders on its own.
+
+### `DispatchAlert`
+Output of `backend_api/app/services/dispatch.py`. Two kinds:
+`assistive_boarding` (station CCTV saw a wheelchair / stroller /
+mobility-aid passenger at an upcoming stop) and `approach_blocked` (a
+trusted obstacle blocks the ramp landing zone). Only **accessible**
+inbound vehicles within the ETA window are alerted — warning a bus with
+no working ramp would report a "handled" boarding that cannot happen.
 
 ## Milestone tracker
 
 | # | Milestone | Owner | Status |
 |---|-----------|-------|--------|
 | 1 | Repo scaffolding, dual-agent guardrails, contracts drafted | Claude | ✅ Done |
-| 2 | Frontend HUD: map, filter bar, obstacle modal, transit card (mock data) | Claude | ✅ Done |
-| 3 | Backend API: FastAPI app serving mock contract data | Codex | ⬜ Not started |
-| 4 | Obstacle ingest endpoint + trust consensus scoring | Codex | ⬜ Not started |
-| 5 | Edge RTOS / CV simulation feeding live obstacle + vehicle events | Codex | ⬜ Not started |
-| 6 | Frontend wired to live backend (replace mock data) | Claude | ⬜ Not started |
-| 7 | Route scoring endpoint + frontend route rendering | Both | ⬜ Not started |
-| 8 | End-to-end demo polish, accessibility audit | Both | ⬜ Not started |
+| 2 | Frontend HUD: map, filter bar, obstacle modal, transit card | Claude | ✅ Done |
+| 3 | Edge vision pipeline ported to `edge_vision/`, retargeted classes | Claude | ✅ Done |
+| 4 | Backend API: ingest, WebSocket stream, transit simulation | Claude | ✅ Done |
+| 5 | Trust consensus, spatial, forecasting, dispatch services | Claude | ✅ Done |
+| 6 | Frontend wired to live backend (cockpit) | Claude | ✅ Done |
+| 7 | Fine-tuned detection head on real mobility-aid data | Codex | ⬜ Not started |
+| 8 | Route scoring endpoint + frontend route rendering | Both | ⬜ Not started |
+| 9 | Firmware / RTOS station node beyond the simulator | Codex | ⬜ Not started |
+| 10 | End-to-end demo polish, WCAG audit | Both | ⬜ Not started |
+
+The full layer-by-layer feature breakdown and changelog live in
+[README.md](../README.md#current-system-architecture--implemented-features).
 
 ## Open questions
 

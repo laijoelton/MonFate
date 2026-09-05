@@ -1,0 +1,37 @@
+# MonFate station-CCTV detection targets.
+#
+# Class names in the SAME ORDER as the model's output head (index == class_id).
+#
+# NOTE ON THE CURRENT WEIGHTS: models/detector.onnx and my_base_detector.pt were
+# pre-trained for a different task and DO NOT yet predict these classes. Run the
+# pipeline with --backend mock (synthetic detections cycling this list) until a
+# head is fine-tuned on labelled mobility-aid data. See models/README.md.
+names:
+  - wheelchair
+  - stroller
+  - mobility_aid      # walker, cane, crutches, guide animal
+  - ambulant          # unassisted passenger — detected, never dispatched on
+  - other
+
+# Classes that count as an assistive-boarding request the gate/emitter reports.
+# `ambulant` is deliberately excluded: an unassisted passenger is not a dispatch
+# signal, and treating one as such would cry wolf at every stop.
+accepted:
+  - wheelchair
+  - stroller
+  - mobility_aid
+
+# Detection score floor — boxes below this are never drawn or considered.
+detection_confidence: 0.20
+
+# An accepted-class detection scoring below this is downgraded to "other",
+# so a low-confidence guess never triggers a dispatch alert on its own.
+other_threshold: 0.70
+
+# Frames of agreement the gate needs before it emits an accepted event.
+# Higher than the industrial default: a false dispatch wastes a bus, and a
+# passenger waiting at a stop is a persistent signal, not a transient one.
+required_consecutive: 5
+
+# Reported in every event so downstream can tell which model produced it.
+model_version: "monfate-accessibility-v0-mock"

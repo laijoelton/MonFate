@@ -72,6 +72,69 @@ export interface AccessibilityRoute {
   computed_at: string;
 }
 
+// --- station CCTV edge vision -----------------------------------------------
+
+/** Classes the station-CCTV head is configured for (edge_vision/classes.yaml). */
+export type DetectionLabel =
+  | "wheelchair"
+  | "stroller"
+  | "mobility_aid"
+  | "ambulant"
+  | "other";
+
+/** Image-free detection record — mirrors edge_vision.emitter.DetectionEvent. */
+export interface VisionEvent {
+  schema_version: number;
+  event_id: string;
+  device_id: string;
+  observed_at: string;
+  model_version: string;
+  label: DetectionLabel | string;
+  confidence: number | null;
+  object_count: number;
+  inference_ms: number;
+  bbox_xyxy: [number, number, number, number] | null;
+  is_simulation: boolean;
+}
+
+// --- pre-emptive dispatch ----------------------------------------------------
+
+export type AlertKind = "assistive_boarding" | "approach_blocked";
+export type AlertSeverity = "info" | "warning" | "critical";
+
+export interface DispatchAlert {
+  alert_id: string;
+  kind: AlertKind;
+  severity: AlertSeverity;
+  stop_id: string;
+  vehicle_id: string | null;
+  route_id: string | null;
+  headline: string;
+  detail: string;
+  detected_label: string | null;
+  affects: AccessibilityFeature[];
+  confidence: number | null;
+  eta_seconds: number | null;
+  raised_at: string;
+  obstacle_id: string | null;
+}
+
+export interface TransitStop {
+  stop_id: string;
+  name: string;
+  location: Coordinates;
+}
+
+export type ConnState = "online" | "offline" | "degraded" | "mock";
+
+export const DETECTION_LABELS: Record<string, string> = {
+  wheelchair: "Wheelchair",
+  stroller: "Stroller",
+  mobility_aid: "Mobility Aid",
+  ambulant: "Ambulant",
+  other: "Other",
+};
+
 export const ACCESSIBILITY_FEATURE_LABELS: Record<AccessibilityFeature, string> = {
   wheelchair_ramp: "Wheelchair Ramp",
   tactile_paving: "Tactile Paving",
