@@ -9,7 +9,8 @@ from app import crud
 from app.database import SessionLocal
 from app.config import get_settings
 from app.services import dispatch, forecast, trust
-from app.stops import STOP_NAMES
+from app.stops import STOP_NAMES, location_of
+from app.schemas.common import Coordinates
 from routing.cyberjaya_stations import STATIONS
 from routing.optimizer import RouteOptimizer, StaticVisionFeed
 
@@ -44,17 +45,29 @@ def collect_context(db):
     for sid, name in names.items():
         source_id = "stop_02" if sid == "shaftsbury" else sid
         events = [e for e in crud.recent_vision_events(db, source_id, limit=20)
-                  if 0 <= age_seconds(e.observed_at, now) <= dispatch.BOARDING_TTL.total_seconds()]
+                  if 0 <= age_seconds(e.observed_at, now) <= dispatch.BOARDING_TTL.total_seconds()
+                  and (get_settings().MOCK_VISION or not e.is_simulation)]
         # Ingest receives edge-debounced tags; collapse repeated class updates.
         labels = sorted({e.label for e in events if e.label in dispatch.LABEL_TO_FEATURE})
         tags[sid] = labels
         inbound = [v for v in vehicles if v.next_stop_id == source_id]
-        vehicle = min(inbound, key=lambda v: v.eta_seconds, default=None)
+        st = STATIONS.get(sid)
+        location = location_of(source_id)
+        if location is None and st:
+            location = Coordinates(lat=st.location.lat, lng=st.location.lng)
+        predictions = [(v, forecast.predict_arrival(v, location, source_id,
+                        assistive_labels=labels, now=now)) for v in inbound]
+        usable = [(v, p) for v, p in predictions if p.status == "ok" and p.eta_seconds is not None]
+        vehicle, prediction = min(usable, key=lambda pair: pair[1].eta_seconds,
+                                  default=(None, forecast.predict_arrival(None, location, source_id)))
         stops.append({"stop_id": sid, "name": name, "vision_labels": labels,
                       "vision_simulated": any(e.is_simulation for e in events),
+                      "vision_models": sorted({e.model_version for e in events}),
+                      "vision_source": "simulation" if any(e.is_simulation for e in events) else "model" if events else "no recent detections",
                       "ramp_status": vehicle.ramp_status.value if vehicle else "unknown",
                       "boarding_request": bool(labels),
-                      "bus_eta_mins": round(vehicle.eta_seconds / 60, 1) if vehicle else None,
+                      "bus_eta_mins": round(prediction.eta_seconds / 60, 1) if prediction.status == "ok" else None,
+                      "arrival_prediction": prediction.to_dict(),
                       "predicted_dwell_s": forecast.predict_dwell(labels)})
     optimizer = RouteOptimizer(vision=StaticVisionFeed(tags))
     for stop in stops:
@@ -68,6 +81,8 @@ def collect_context(db):
                                        "accessibility_load": st.accessibility_load,
                                        "oku_readiness_score": None, "elderly_readiness_score": None})
     return {"available": True, "demo_mode": get_settings().MOCK_DATA,
+            "vision_simulation_enabled": get_settings().MOCK_VISION,
+            "prediction_source": "MonFate position/speed arrival forecast and accessibility route optimizer; not a trained ETA model",
             "observed_at": now.isoformat(), "stops": stops,
             "obstacles": obstacles, "transit_delay_mins": None,
             "delay_detail": "No live traffic feed or published schedule baseline is connected",

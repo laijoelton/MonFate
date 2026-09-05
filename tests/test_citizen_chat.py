@@ -51,7 +51,8 @@ def test_grounded_reply(chat):
     response = post(client)
     assert response.status_code == 200
     assert "deployed" in response.json()["reply"]
-    assert "3 minutes" in response.json()["reply"]
+    # At-stop coordinates predict zero, overriding the raw 180-second ETA.
+    assert "0 minutes" in response.json()["reply"]
     context = context_builder.build_context()
     stop = next(s for s in context["stops"] if s["stop_id"] == "cbj_utara")
     assert stop["predicted_dwell_s"] > 65
@@ -84,7 +85,7 @@ def test_llm_error_falls_back(chat, monkeypatch):
     def fail(*args):
         raise TimeoutError()
     monkeypatch.setattr(citizen_chat, "llm_reply", fail)
-    assert "3 minutes" in post(chat[0]).json()["reply"]
+    assert "0 minutes" in post(chat[0]).json()["reply"]
 
 
 def test_openai_receives_grounding(chat, monkeypatch):
@@ -103,7 +104,7 @@ def test_openai_receives_grounding(chat, monkeypatch):
     monkeypatch.setattr(openai, "OpenAI", Client)
     monkeypatch.setenv("OPENAI_API_KEY", "test-placeholder")
     assert post(chat[0]).status_code == 200
-    assert '"bus_eta_mins": 3.0' in captured["input"]
+    assert '"bus_eta_mins": 0.0' in captured["input"]
     assert "MonFate Transit Concierge" in captured["instructions"]
     assert captured["store"] is False
 
@@ -111,3 +112,24 @@ def test_openai_receives_grounding(chat, monkeypatch):
 def test_missing_stop_and_validation(chat):
     assert "Which stop" in post(chat[0], "Next accessible bus arrival?").json()["reply"]
     assert post(chat[0], " ").status_code == 422
+
+
+def test_real_vision_drives_prediction_and_reply(chat, monkeypatch):
+    monkeypatch.setattr(context_builder.get_settings(), "MOCK_VISION", False)
+    reply = post(chat[0], "What did the vision model detect at Cyberjaya Utara?").json()["reply"]
+    assert "vision model recently detected wheelchair" in reply
+    assert "predicted boarding dwell" in reply
+    stop = next(s for s in context_builder.build_context()["stops"] if s["stop_id"] == "cbj_utara")
+    assert stop["vision_models"] == ["test"]
+    assert stop["arrival_prediction"]["predicted_dwell_s"] == 65
+    assert stop["arrival_prediction"]["status"] == "ok"
+
+
+def test_real_vision_mode_excludes_mock_events(chat, monkeypatch):
+    monkeypatch.setattr(context_builder.get_settings(), "MOCK_VISION", False)
+    with Session(chat[1]) as db:
+        db.query(VisionEventRecord).update({"is_simulation": True})
+        db.commit()
+    stop = next(s for s in context_builder.build_context()["stops"] if s["stop_id"] == "cbj_utara")
+    assert stop["vision_labels"] == []
+    assert stop["arrival_prediction"]["predicted_dwell_s"] == 20

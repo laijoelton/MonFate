@@ -196,6 +196,32 @@ The full layer-by-layer feature breakdown and changelog live in
 
 ### Citizen transit assistant (September 2026)
 
+September 6 model connection:
+
+- Chat now evaluates `forecast.predict_arrival` from fresh inbound vehicle
+  position/speed, selects the earliest usable prediction, and includes forecast
+  confidence/horizons alongside optimizer dwell plans. The forecaster is an
+  existing rule-based predictor, not a trained ETA checkpoint. Infrastructure
+  `HealthMonitor` is separate and has no connected packet-loss/jitter feed.
+- Real vision event model fingerprints and provenance enter chat context.
+  `SYS_MOCK_VISION=false` disables synthetic vision generation and excludes old
+  simulated detections from chat while `SYS_MOCK_DATA=true` keeps demo buses.
+- `python -m edge_vision.run_connected` runs the local
+  `edge_vision/models/wheelchair_real.onnx` checkpoint on camera 0, mapped to
+  Tamarind Square (`stop_01`), and posts gated, image-free events to localhost.
+  `--source`, `--stop-id`, `--weights`, and `--max-frames` are configurable.
+  Missing weights fail instead of silently switching to mock inference.
+  The checkpoint and existing class-map edits are user-owned local artifacts;
+  neither is included in this change. This checkpoint covers wheelchair and
+  mobility aid, not stroller detection.
+- Restart backend with `SYS_MOCK_DATA=true` and `SYS_MOCK_VISION=false` for this
+  mixed test setup. Chat labels bus telemetry as simulated independently of
+  actual camera inference. Environment variables must match the backend's
+  local ingest credentials when running the camera launcher.
+- Verified 54 backend tests and a 60-frame real webcam ONNX inference run.
+  No accepted mobility event occurred during that camera smoke run; live HTTP
+  replies correctly reported no confirmed detection and a predicted bus ETA.
+
 - Added `POST /api/v1/citizen/chat` with validated message/session contracts in
   `backend_api/app/schemas/chat.py`, router in `api/citizen_chat.py`, and fresh
   context collection in `core/chat/context_builder.py`.

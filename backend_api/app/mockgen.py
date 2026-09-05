@@ -101,7 +101,7 @@ async def _run() -> None:
             await hub.broadcast("vehicle", vehicle.model_dump(mode="json"))
 
         # Every ~8 ticks a station node reports an assistive passenger waiting.
-        if tick % 8 == 0:
+        if settings.MOCK_VISION and tick % 8 == 0:
             stop_id = random.choice(STOP_ORDER)
             label = ASSISTIVE_LABELS[(tick // 8) % len(ASSISTIVE_LABELS)]
             payload = VisionEventPayload(

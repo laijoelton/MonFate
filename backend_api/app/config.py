@@ -32,6 +32,7 @@ class Settings:
 
     # --- standalone transit simulation ---
     MOCK_DATA: bool = _bool("SYS_MOCK_DATA", "true")
+    MOCK_VISION: bool = _bool("SYS_MOCK_VISION", "true")
     MOCK_VEHICLES: int = int(os.getenv("SYS_MOCK_VEHICLES", "3"))
     MOCK_INTERVAL_S: float = float(os.getenv("SYS_MOCK_INTERVAL_S", "2.0"))
 

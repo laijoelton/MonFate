@@ -43,6 +43,12 @@ def template_reply(message, context):
     eta = stop["bus_eta_mins"]
     arrival = (f"The next accessible bus to {name} is estimated in {eta:g} minutes."
                if eta is not None else f"There is no fresh accessible bus ETA for {name}; " + context["static_estimate"])
+    if any(word in query for word in ("vision", "detect", "camera")):
+        labels = ", ".join(stop["vision_labels"]).replace("_", " ")
+        if labels:
+            source = "simulated vision feed" if stop["vision_simulated"] else "vision model"
+            return f"The {source} recently detected {labels} at {name}. The predicted boarding dwell is {stop['predicted_dwell_s']} seconds; a detection alone does not confirm ramp readiness."
+        return f"No recent confirmed mobility detections are available for {name}. This does not confirm that nobody needs boarding assistance."
     if "ramp" in query:
         status = stop["ramp_status"]
         detail = (f"The inbound vehicle reports its ramp deployed for {name}." if status == "deployed"
@@ -80,7 +86,8 @@ def citizen_chat(payload: CitizenChatRequest):
         context = offline_context()
     fallback = template_reply(payload.message, context)
     if context.get("demo_mode"):
-        fallback = "Demo telemetry: " + fallback
+        fallback = ("Demo telemetry: " if context.get("vision_simulation_enabled", True)
+                    else "Bus telemetry is simulated; ") + fallback
     if os.getenv("OPENAI_API_KEY") and context.get("available"):
         try:
             return CitizenChatResponse(reply=llm_reply(payload.message, context))
