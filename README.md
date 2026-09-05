@@ -285,6 +285,14 @@ Legend: ✅ done · ⬜ not started
 
 ### Changelog
 
+**2026-09-05 — Stable preview and optional local age overlay**
+- Added IoU/EMA box smoothing and a default 0.60 confidence floor. Held display
+  boxes never count as fresh evidence for dispatch.
+- `--preview --demographics` enables approximate age brackets locally; gender
+  inference is not implemented. No facial attributes enter event payloads.
+- All 57 edge tests pass; a bounded real webcam preview completed successfully.
+  See the [preview setup guide](edge_vision/models/README.md#stable-preview-and-optional-age-overlay).
+
 **2026-09-05 — Mobility vision runtime and training support**
 - Added strict class-map/head validation, explicit simulation fallback, and
   model fingerprints; enforced the five-frame gate and corrected event ingestion.

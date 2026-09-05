@@ -10,6 +10,7 @@ edge_vision/datasets/
 edge_vision/models/mobility*.pt
 edge_vision/models/mobility*.onnx
 Ultralytics/
+edge_vision/models/age_preview/
 
 # Environment — examples are committed, real values never are
 .env

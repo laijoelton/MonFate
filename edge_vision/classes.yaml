@@ -23,7 +23,7 @@ accepted:
   - mobility_aid
 
 # Detection score floor — boxes below this are never drawn or considered.
-detection_confidence: 0.20
+detection_confidence: 0.60
 
 # An accepted-class detection scoring below this is downgraded to "other",
 # so a low-confidence guess never triggers a dispatch alert on its own.

@@ -1,6 +1,6 @@
 # Base pipeline (run.py, gate, emitter, mock mode)
 numpy>=1.24
-opencv-python>=4.8
+opencv-python>=4.8,<5,!=4.13.0.90  # Caffe DNN age model requires OpenCV 4.x
 pyyaml>=6.0
 requests>=2.31
 

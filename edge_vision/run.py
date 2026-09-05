@@ -25,6 +25,7 @@ import yaml
 from .gate import ConsecutiveDetectionGate
 from .emitter import EventEmitter
 from .detector import MobilityDetector, DISPATCH_CLASSES
+from .tracking import BoxSmoother, filter_detections
 
 
 # --------------------------------------------------------------------------- #
@@ -109,11 +110,26 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--imgsz", type=int, default=416)
     p.add_argument("--device", default=os.getenv("SYS_VISION_DEVICE", "auto"))
     p.add_argument("--preview", action="store_true")
+    p.add_argument("--confidence", type=float, help="minimum detection confidence (config default 0.60)")
+    p.add_argument("--smoothing-alpha", type=float, default=.35,
+                   help="EMA new-box weight in (0,1]; lower gives steadier preview boxes")
+    p.add_argument("--demographics", action="store_true",
+                   help="local approximate age overlay only; requires --preview; never emitted")
+    p.add_argument("--age-model-dir", type=Path,
+                   default=Path(__file__).resolve().parent / "models" / "age_preview")
+    p.add_argument("--max-frames", type=int, default=0, help="stop after N frames (0 = unlimited)")
     p.add_argument("--emit", metavar="HTTP_BASE", default=os.getenv("SYS_API_BASE_URL") or None)
     p.add_argument("--mqtt", metavar="HOST:PORT")
     p.add_argument("--api-key", default=os.getenv("SYS_API_KEY"))
     p.add_argument("--simulation", action="store_true", help="use mock inference and mark events simulated")
-    return p.parse_args()
+    args = p.parse_args()
+    if args.demographics and not args.preview:
+        p.error("--demographics requires --preview (local age overlay only)")
+    if args.max_frames < 0:
+        p.error("--max-frames must be non-negative")
+    if not 0 < args.smoothing_alpha <= 1:
+        p.error("--smoothing-alpha must be in (0, 1]")
+    return args
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -131,15 +147,15 @@ def main() -> None:
     cfg = load_config(args.config)
     names: list[str] = cfg["names"]
     accepted: set[str] = set(cfg.get("accepted", names))
-    det_conf = float(cfg.get("detection_confidence", 0.20))
+    det_conf = args.confidence if args.confidence is not None else float(cfg.get("detection_confidence", .60))
     other_thr = float(cfg.get("other_threshold", 0.70))
     required = cfg.get("required_consecutive", 5)
     if type(required) is not int or required != 5:
         raise ValueError("mobility deployment requires exactly 5 consecutive frames")
     if accepted != DISPATCH_CLASSES:
         raise ValueError("accepted classes must be wheelchair, stroller, mobility_aid")
-    if not 0 <= det_conf <= other_thr <= 1:
-        raise ValueError("confidence thresholds must satisfy 0 <= detection <= acceptance <= 1")
+    if not (0 <= det_conf <= 1 and 0 <= other_thr <= 1):
+        raise ValueError("confidence thresholds must each be between 0 and 1")
 
     detector = MobilityDetector(
         args.weights, backend=args.backend, class_names=names,
@@ -148,6 +164,11 @@ def main() -> None:
     model_version = detector.model_version
     detector.warmup()
     gate = ConsecutiveDetectionGate(accepted, required)
+    smoother = BoxSmoother(alpha=args.smoothing_alpha) if args.preview else None
+    age_preview = None
+    if args.demographics:
+        from .age_preview import AgePreview
+        age_preview = AgePreview(args.age_model_dir)
 
     sink = "http" if args.emit else "mqtt" if args.mqtt else "stdout"
     emitter = EventEmitter(
@@ -160,14 +181,18 @@ def main() -> None:
         return "other" if name in accepted and conf < other_thr else name
 
     cap = open_source(args.source)
+    processed = 0
+    last_shape = None
     print(f"[run] source={args.source} backend={args.backend or 'auto'} sink={sink}. Ctrl-C to stop.")
     try:
         while True:
             ok, frame = cap.read()
             if not ok:
+                if processed == 0:
+                    raise RuntimeError(f"source {args.source!r} opened but returned no frames")
                 break
             t_capture_ns = time.monotonic_ns()          # T0
-            detections = detector.infer(frame, conf=det_conf)
+            detections = filter_detections(detector.infer(frame, conf=det_conf), det_conf)
             t_infer_ns = time.monotonic_ns()            # T1
             infer_ms = int((t_infer_ns - t_capture_ns) / 1e6)
 
@@ -184,11 +209,19 @@ def main() -> None:
             if args.preview:
                 import cv2
 
-                for d, lab in zip(detections, labels):
+                if frame.shape != last_shape:
+                    smoother.reset()
+                    last_shape = frame.shape
+                if age_preview is not None:
+                    age_preview.render(frame)
+                for track in smoother.update(detections):
+                    d = track.detection
+                    lab = resolve_label(d.class_name, d.confidence)
                     x1, y1, x2, y2 = (int(v) for v in d.xyxy)
-                    color = (0, 200, 0) if lab != "other" else (0, 165, 255)
+                    color = (140, 140, 140) if track.missed else (0, 200, 0) if lab != "other" else (0, 165, 255)
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                    cv2.putText(frame, f"{lab.upper()} {d.confidence:.0%}", (x1, max(y1 - 8, 20)),
+                    suffix = " (held)" if track.missed else ""
+                    cv2.putText(frame, f"{lab.upper()} {d.confidence:.0%}{suffix}", (x1, max(y1 - 8, 20)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
                 cv2.putText(frame, f"{result.status.upper()} {result.label or ''} "
                             f"{result.consecutive}/{required}", (16, 32),
@@ -198,6 +231,9 @@ def main() -> None:
                     break
             elif args.source == "mock":
                 time.sleep(0.02)  # ~50 fps ceiling; don't spin the CPU headless
+            processed += 1
+            if args.max_frames and processed >= args.max_frames:
+                break
     except KeyboardInterrupt:
         pass
     finally:

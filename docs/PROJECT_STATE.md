@@ -166,6 +166,29 @@ no working ramp would report a "handled" boarding that cannot happen.
   are in [MOBILITY_SMOKE_RUN.md](MOBILITY_SMOKE_RUN.md). Real-world evaluation
   remains required before Milestone 7 can be marked complete.
 
+### Edge preview improvements (2026-09-05)
+
+- `tracking.py` adds class-aware one-to-one IoU association and EMA boxes for
+  the display. New boxes need two observations; held boxes expire after two
+  missed frames. Only fresh detections reach the five-frame gate and emitter.
+- Runner confidence now defaults to 0.60, with a `--confidence` override;
+  invalid/nonfinite detections are filtered independently of backend behavior.
+- `age_preview.py` adds an opt-in local age-bracket overlay under
+  `--preview --demographics`. Gender inference is not implemented. Face and
+  age networks are never initialized without the flag, and estimates/face
+  data never enter shared contracts or outbound events.
+- `download_age_models.py` explicitly acquires SHA-256-verified face and
+  age-only models. `.venv` uses OpenCV 4.14.0 (4.x retains Caffe support).
+  Both real models loaded and ran inference. No extra facial-analysis package
+  was needed. Model artifacts remain local and ignored.
+- A real webcam run using `--source 0 --preview --demographics --max-frames 30`
+  completed with exit code 0. The local default `models/mobility.onnx` points
+  to a copy of the previously trained synthetic smoke model, not mock inference.
+- **57 tests passed**, with three existing upstream ONNX-export warnings.
+  Coverage includes EMA jitter, one-to-one association, distant spikes,
+  missed-frame expiry, confidence filtering, age refresh/cache lifetime, and
+  preview/gate/event separation. `pip check` reports no broken requirements.
+
 The full layer-by-layer feature breakdown and changelog live in
 [README.md](../README.md#current-system-architecture--implemented-features).
 
