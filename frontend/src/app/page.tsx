@@ -19,7 +19,7 @@ import { ACCESSIBILITY_FILTERS } from "@/lib/mock-data";
 import type { AccessibilityFeature, ObstacleReport } from "@/types/monfate";
 
 /** Fallback report location when the browser gives us no geolocation fix. */
-const FALLBACK_LOCATION = { lat: 3.1466, lng: 101.6958 };
+const FALLBACK_LOCATION = { lat: 2.9095, lng: 101.6625 }; // Tamarind Square
 
 export default function Cockpit() {
   const cockpit = useCockpit();
