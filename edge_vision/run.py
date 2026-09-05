@@ -101,8 +101,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--source", default=os.getenv("SYS_VISION_SOURCE", "0"),
                    help="webcam index | file | url | 'mock' | 'loop:<file>'")
     p.add_argument("--weights", default=os.getenv("SYS_VISION_MODEL", "edge_vision/models/mobility.onnx"))
+    p.add_argument("--model-id", default=None,
+                   help="hosted model id for --backend roboflow, e.g. wheelchair-9qvfx/3. "
+                        "UPLOADS EVERY ANALYSED FRAME; needs ROBOFLOW_API_KEY")
     p.add_argument("--backend", default=os.getenv("SYS_VISION_BACKEND"),
-                   choices=["pytorch", "onnx", "mock"])
+                   choices=["pytorch", "onnx", "mock", "roboflow"])
     p.add_argument("--fallback", action="store_true", default=_env_bool("SYS_VISION_FALLBACK", True),
                    help="retry the same validated artifact on CPU (default on)")
     p.add_argument("--no-fallback", dest="fallback", action="store_false")
@@ -139,6 +142,10 @@ def parse_args() -> argparse.Namespace:
         p.error("--age-backend roboflow requires --demographics")
     if args.age_model_id and args.age_backend != "roboflow":
         p.error("--age-model-id only applies to --age-backend roboflow")
+    if args.backend == "roboflow" and not args.model_id:
+        p.error("--backend roboflow requires --model-id, e.g. wheelchair-9qvfx/3")
+    if args.model_id and args.backend != "roboflow":
+        p.error("--model-id only applies to --backend roboflow")
     if args.max_frames < 0:
         p.error("--max-frames must be non-negative")
     if not 0 < args.smoothing_alpha <= 1:
@@ -175,8 +182,10 @@ def main() -> None:
     if class_map is not None and not isinstance(class_map, dict):
         raise ValueError("checkpoint_class_map must be a mapping of checkpoint label -> contract label")
 
+    # The hosted backend is addressed by model id rather than a file on disk.
+    target = args.model_id if args.backend == "roboflow" else args.weights
     detector = MobilityDetector(
-        args.weights, backend=args.backend, class_names=names,
+        target, backend=args.backend, class_names=names,
         imgsz=args.imgsz, device=args.device, fallback=args.fallback, simulation=args.simulation,
         class_map=class_map,
     )

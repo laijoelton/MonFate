@@ -203,12 +203,14 @@ image-free emitter**.
   per accepted detection, over stdout / HTTP / MQTT. **No frames ever leave the
   device on the dispatch path**, under any configuration. This is load-bearing,
   not incidental: the subjects are disabled passengers at public transit stops.
-- **One optional exception, off by default.** `--age-backend roboflow` uploads
-  preview frames to a hosted age model. It requires `--preview`, so it cannot
-  run in a headless dispatch deployment, and its output never enters an event.
-  While enabled the device is no longer image-free even though events still are
-  — deployments needing the unqualified guarantee must leave it off, and any
-  site running it needs passenger signage.
+- **Two optional exceptions, both off by default.** `--age-backend roboflow`
+  uploads preview frames to a hosted age model (requires `--preview`, so never
+  headless). `--backend roboflow` uploads every analysed frame to a hosted
+  detector — stronger, because detection *is* the dispatch path, so it runs
+  headless and makes boarding alerts depend on a network link. Neither puts
+  imagery or an inferred attribute into an event, but while either is on the
+  device is no longer image-free. Deployments needing the unqualified guarantee
+  must leave both off, and any site running them needs passenger signage.
 - **Detection targets** (`classes.yaml`): `wheelchair`, `stroller`,
   `mobility_aid`, `ambulant`, `other`. Only the first three are dispatchable —
   an unassisted passenger is not a boarding request.

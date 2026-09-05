@@ -84,10 +84,15 @@ def load_detector(
 
 
 def _construct(backend, weights, class_names, imgsz, device, class_map=None) -> Detector:
-    if class_map and backend != "onnx":
+    if backend == "roboflow":
+        from .roboflow_backend import RoboflowDetector
+
+        # For this backend `weights` carries the hosted model id, not a path.
+        return RoboflowDetector(str(weights), class_names=class_names, class_map=class_map)
+    if class_map and backend not in ("onnx", "roboflow"):
         raise ValueError(
-            f"checkpoint_class_map is only supported by the onnx backend, not {backend!r}; "
-            "ignoring it would silently mislabel detections"
+            f"checkpoint_class_map is only supported by the onnx and roboflow backends, "
+            f"not {backend!r}; ignoring it would silently mislabel detections"
         )
     if backend == "pytorch":
         from .pytorch_backend import PyTorchDetector

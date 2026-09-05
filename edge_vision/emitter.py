@@ -11,11 +11,17 @@ T" and nothing else — no frames, no faces, no re-identifiable attributes.
 This guarantee covers the DISPATCH path in full: nothing this emitter sends,
 under any configuration, contains imagery or an inferred personal attribute.
 
-One optional component sits outside it. `--age-backend roboflow` uploads preview
-frames to a hosted age model (see `roboflow_age.py`). It is off by default,
-requires `--preview`, and its output never reaches this emitter — but while it
-is enabled the *device* is no longer image-free, even though the *events* still
-are. Deployments that need the unqualified guarantee must leave it off.
+Two optional components sit outside it. Both are off by default, and neither
+puts imagery or an inferred attribute into an event — but while either is
+enabled the *device* is no longer image-free, even though the *events* still
+are. Deployments needing the unqualified guarantee must leave both off.
+
+* ``--age-backend roboflow`` uploads preview frames to a hosted age model
+  (`roboflow_age.py`). It requires ``--preview``, so it cannot run headless.
+* ``--backend roboflow`` uploads every analysed frame to a hosted *detector*
+  (`inference/roboflow_backend.py`). This one is stronger: detection is the
+  dispatch path, so it runs headless in production and makes boarding alerts
+  depend on a network link. Prefer local weights where the choice exists.
 
 Sinks:
   - stdout : one JSON line per event (default)

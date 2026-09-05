@@ -54,10 +54,15 @@ def test_empty_map_is_rejected():
         build_class_translation(["wc"], CONTRACT, {})
 
 
-def test_class_map_is_rejected_on_non_onnx_backends():
-    """Silently ignoring a declared map would mislabel every detection."""
-    with pytest.raises(ValueError, match="only supported by the onnx backend"):
-        _construct("pytorch", "model.pt", CONTRACT, 416, "cpu", {"wheelchair": "wheelchair"})
+@pytest.mark.parametrize("backend", ["pytorch", "tflite", "tensorrt"])
+def test_class_map_is_rejected_on_backends_that_cannot_apply_it(backend):
+    """Silently ignoring a declared map would mislabel every detection.
+
+    Only onnx (local metadata) and roboflow (per-response labels) can honour a
+    map; the rest must refuse rather than quietly drop it.
+    """
+    with pytest.raises(ValueError, match="only supported by the onnx and roboflow"):
+        _construct(backend, "model.bin", CONTRACT, 416, "cpu", {"wheelchair": "wheelchair"})
 
 
 def _roboflow_style_onnx(tmp_path, names):
