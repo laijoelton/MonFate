@@ -23,6 +23,7 @@ consensus system to route riders around real-time accessibility failures.
 │   - Filter Bar    │                        │   - Trust consensus   │
 │   - Report Modal  │                        │   - Route scoring     │
 │   - Transit Card  │                        └──────────┬───────────┘
+│   - SampAI Chat    │                                   │
 └──────────────────┘                                    │
                                                           │ simulated feed
                                               ┌───────────▼───────────┐
@@ -98,6 +99,19 @@ trusted obstacle blocks the ramp landing zone). Only **accessible**
 inbound vehicles within the ETA window are alerted — warning a bus with
 no working ramp would report a "handled" boarding that cannot happen.
 
+### Citizen assistance and SampAI chat
+
+The citizen cockpit includes an ephemeral, English text assistant served by
+`POST /api/v1/chat/stream`. The browser sends at most 20 messages and receives
+SSE text deltas plus validated action proposals. `CHAT_PROVIDER=mock` provides
+deterministic offline demonstrations; `CHAT_PROVIDER=gemini` uses Gemini 2.5
+Flash with a backend-only API key. Chat history is not persisted.
+
+The assistant can propose an `AssistanceRequest` or `ObstacleReport`, but it
+cannot execute either. The citizen must press a visible Confirm button. New
+assistance records are anonymous, idempotent, begin as `pending`, and broadcast
+the existing `assistance_request` WebSocket event to the admin dashboard.
+
 ## Milestone tracker
 
 | # | Milestone | Owner | Status |
@@ -112,6 +126,8 @@ no working ramp would report a "handled" boarding that cannot happen.
 | 8 | Route scoring endpoint + frontend route rendering | Both | ⬜ Not started |
 | 9 | Firmware / RTOS station node beyond the simulator | Codex | ⬜ Not started |
 | 10 | End-to-end demo polish, WCAG audit | Both | ⬜ Not started |
+| 11 | Citizen SampAI mock stream, confirmed assistance/obstacle actions | Both | ✅ Done |
+| 12 | Gemini live-provider verification with deployment key | Codex | ⬜ Not started |
 
 ### Milestone 7 — validated mobility runtime (2026-09-05)
 

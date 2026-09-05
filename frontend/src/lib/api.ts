@@ -9,6 +9,7 @@ import type {
   TransitVehicle,
   VisionEvent,
 } from "@/types/monfate";
+import type { CitizenChatMessage } from "@/types/chat";
 
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 
@@ -18,7 +19,8 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export const getHealth = () => get<{ status: string; mock_data: boolean }>("/health");
+export const getHealth = () =>
+  get<{ status: string; mock_data: boolean; chat_provider: string }>("/health");
 export const getObstacles = () => get<ObstacleReport[]>("/api/v1/obstacles");
 export const getVehicles = () => get<TransitVehicle[]>("/api/v1/vehicles");
 export const getStops = () => get<TransitStop[]>("/api/v1/stops");
@@ -45,4 +47,44 @@ export async function postObstacle(body: {
   });
   if (!res.ok) throw new Error(`report failed: ${res.status}`);
   return res.json();
+}
+
+export async function postAssistanceRequest(body: {
+  passenger_need: string;
+  stop_id: string;
+  bus_id: string | null;
+  client_request_id: string;
+}) {
+  const res = await fetch(`${BASE}/api/v1/assistance-requests`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`assistance request failed: ${res.status}`);
+  return res.json() as Promise<{
+    status: string;
+    created: boolean;
+    assistance_request: { id: string; status: string };
+  }>;
+}
+
+export async function openChatStream(
+  messages: Pick<CitizenChatMessage, "role" | "content">[],
+  sessionId: string,
+  signal: AbortSignal,
+) {
+  const response = await fetch(`${BASE}/api/v1/chat/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Chat-Session-ID": sessionId,
+    },
+    body: JSON.stringify({ messages: messages.slice(-20) }),
+    signal,
+  });
+  if (!response.ok || !response.body) {
+    const detail = await response.json().catch(() => null);
+    throw new Error(detail?.detail ?? `chat failed: ${response.status}`);
+  }
+  return response.body;
 }
