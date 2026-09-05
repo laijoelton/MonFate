@@ -8,9 +8,24 @@ are disabled and mobility-impaired passengers at public transit stops. The
 station node reports "a wheelchair boarding request occurred at stop X at time
 T" and nothing else — no frames, no faces, no re-identifiable attributes.
 
+This guarantee covers the DISPATCH path in full: nothing this emitter sends,
+under any configuration, contains imagery or an inferred personal attribute.
+
+Two optional components sit outside it. Both are off by default, and neither
+puts imagery or an inferred attribute into an event — but while either is
+enabled the *device* is no longer image-free, even though the *events* still
+are. Deployments needing the unqualified guarantee must leave both off.
+
+* ``--age-backend roboflow`` uploads preview frames to a hosted age model
+  (`roboflow_age.py`). It requires ``--preview``, so it cannot run headless.
+* ``--backend roboflow`` uploads every analysed frame to a hosted *detector*
+  (`inference/roboflow_backend.py`). This one is stronger: detection is the
+  dispatch path, so it runs headless in production and makes boarding alerts
+  depend on a network link. Prefer local weights where the choice exists.
+
 Sinks:
   - stdout : one JSON line per event (default)
-  - http   : POST to <base>/api/v1/events  with X-API-Key
+  - http   : POST to <base>/api/v1/vision/events  with X-API-Key
   - mqtt   : publish JSON to a topic (needs paho-mqtt)
 """
 
@@ -149,7 +164,7 @@ class EventEmitter:
             for attempt in range(3):
                 try:
                     r = requests.post(
-                        f"{self.http_base}/api/v1/events",
+                        f"{self.http_base}/api/v1/vision/events",
                         data=payload,
                         headers={"Content-Type": "application/json", "X-API-Key": self.api_key or ""},
                         timeout=5,

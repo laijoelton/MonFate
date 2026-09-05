@@ -1,11 +1,12 @@
 # Base pipeline (run.py, gate, emitter, mock mode)
 numpy>=1.24
-opencv-python>=4.8
+opencv-python>=4.8,<5,!=4.13.0.90  # Caffe DNN age model requires OpenCV 4.x
 pyyaml>=6.0
 requests>=2.31
 
 # --- pick the inference backend(s) you need ---
-# ultralytics>=8.3       # pytorch_backend  (.pt)  -- external YOLO checkpoints
+ultralytics>=8.3,<9      # YOLOv8 training and validated .pt inference
+pytest>=8               # edge regression suite
 onnxruntime>=1.17        # onnx_backend     (.onnx) -- our detector.onnx  (or onnxruntime-gpu)
 # tflite-runtime>=2.14   # tflite_backend   (.tflite)
 # tensorrt               # tensorrt_backend (.engine) -- install via JetPack on Jetson
@@ -18,3 +19,9 @@ tqdm>=4.66
 
 # Optional: MQTT event sink
 # paho-mqtt>=2.0
+
+# Optional: hosted age overlay (--age-backend roboflow).
+# UPLOADS PREVIEW FRAMES OFF THE DEVICE. Left commented so it is never a
+# transitive install; enable deliberately, and set ROBOFLOW_API_KEY in a
+# gitignored .env — never on the command line, never committed.
+# inference-sdk>=0.9

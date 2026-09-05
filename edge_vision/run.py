@@ -24,7 +24,9 @@ import yaml
 
 from .gate import ConsecutiveDetectionGate
 from .emitter import EventEmitter
-from .inference.factory import load_detector
+from .detector import MobilityDetector, DISPATCH_CLASSES
+from .tracking import BoxSmoother, filter_detections
+from .person_preview import PersonPreview, DEFAULT_PERSON_WEIGHTS
 
 
 # --------------------------------------------------------------------------- #
@@ -98,22 +100,57 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--source", default=os.getenv("SYS_VISION_SOURCE", "0"),
                    help="webcam index | file | url | 'mock' | 'loop:<file>'")
-    p.add_argument("--weights", default=os.getenv("SYS_VISION_MODEL", "edge_vision/models/detector.onnx"))
+    p.add_argument("--weights", default=os.getenv("SYS_VISION_MODEL", "edge_vision/models/mobility.onnx"))
+    p.add_argument("--model-id", default=None,
+                   help="hosted model id for --backend roboflow, e.g. wheelchair-9qvfx/3. "
+                        "UPLOADS EVERY ANALYSED FRAME; needs ROBOFLOW_API_KEY")
     p.add_argument("--backend", default=os.getenv("SYS_VISION_BACKEND"),
-                   choices=[None, "pytorch", "onnx", "tflite", "tensorrt", "mock"])
+                   choices=["pytorch", "onnx", "mock", "roboflow"])
     p.add_argument("--fallback", action="store_true", default=_env_bool("SYS_VISION_FALLBACK", True),
-                   help="TensorRT -> ONNX -> PyTorch, GPU -> CPU (default on)")
+                   help="retry the same validated artifact on CPU (default on)")
     p.add_argument("--no-fallback", dest="fallback", action="store_false")
     p.add_argument("--mock", action="store_true", help="shortcut for --source mock --backend mock")
     p.add_argument("--config", default="edge_vision/classes.yaml", type=Path)
     p.add_argument("--imgsz", type=int, default=416)
     p.add_argument("--device", default=os.getenv("SYS_VISION_DEVICE", "auto"))
     p.add_argument("--preview", action="store_true")
+    p.add_argument("--person-weights", type=Path, default=DEFAULT_PERSON_WEIGHTS,
+                   help="separate pretrained person detector used only by preview")
+    p.add_argument("--no-person-association", action="store_true",
+                   help="disable local full-body boxes and body-to-chair links")
+    p.add_argument("--confidence", type=float, help="minimum detection confidence (config default 0.60)")
+    p.add_argument("--smoothing-alpha", type=float, default=.35,
+                   help="EMA new-box weight in (0,1]; lower gives steadier preview boxes")
+    p.add_argument("--demographics", action="store_true",
+                   help="approximate age overlay only; requires --preview; never emitted")
+    p.add_argument("--age-backend", choices=("local", "roboflow"), default="local",
+                   help="local: on-device CPU models (default). roboflow: UPLOADS FRAMES "
+                        "to a hosted service; needs ROBOFLOW_API_KEY")
+    p.add_argument("--age-model-id", default=None,
+                   help="hosted age model id (roboflow backend only)")
+    p.add_argument("--age-model-dir", type=Path,
+                   default=Path(__file__).resolve().parent / "models" / "age_preview")
+    p.add_argument("--max-frames", type=int, default=0, help="stop after N frames (0 = unlimited)")
     p.add_argument("--emit", metavar="HTTP_BASE", default=os.getenv("SYS_API_BASE_URL") or None)
     p.add_argument("--mqtt", metavar="HOST:PORT")
     p.add_argument("--api-key", default=os.getenv("SYS_API_KEY"))
-    p.add_argument("--simulation", action="store_true", help="mark every event is_simulation=true")
-    return p.parse_args()
+    p.add_argument("--simulation", action="store_true", help="use mock inference and mark events simulated")
+    args = p.parse_args()
+    if args.demographics and not args.preview:
+        p.error("--demographics requires --preview (age is an overlay, never an event)")
+    if args.age_backend == "roboflow" and not args.demographics:
+        p.error("--age-backend roboflow requires --demographics")
+    if args.age_model_id and args.age_backend != "roboflow":
+        p.error("--age-model-id only applies to --age-backend roboflow")
+    if args.backend == "roboflow" and not args.model_id:
+        p.error("--backend roboflow requires --model-id, e.g. wheelchair-9qvfx/3")
+    if args.model_id and args.backend != "roboflow":
+        p.error("--model-id only applies to --backend roboflow")
+    if args.max_frames < 0:
+        p.error("--max-frames must be non-negative")
+    if not 0 < args.smoothing_alpha <= 1:
+        p.error("--smoothing-alpha must be in (0, 1]")
+    return args
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -131,39 +168,67 @@ def main() -> None:
     cfg = load_config(args.config)
     names: list[str] = cfg["names"]
     accepted: set[str] = set(cfg.get("accepted", names))
-    det_conf = float(cfg.get("detection_confidence", 0.20))
+    det_conf = args.confidence if args.confidence is not None else float(cfg.get("detection_confidence", .60))
     other_thr = float(cfg.get("other_threshold", 0.70))
-    required = int(cfg.get("required_consecutive", 3))
-    model_version = str(cfg.get("model_version", "unknown"))
+    required = cfg.get("required_consecutive", 5)
+    if type(required) is not int or required != 5:
+        raise ValueError("mobility deployment requires exactly 5 consecutive frames")
+    if accepted != DISPATCH_CLASSES:
+        raise ValueError("accepted classes must be wheelchair, stroller, mobility_aid")
+    if not (0 <= det_conf <= 1 and 0 <= other_thr <= 1):
+        raise ValueError("confidence thresholds must each be between 0 and 1")
 
-    detector = load_detector(
-        args.weights, backend=args.backend, class_names=names,
-        imgsz=args.imgsz, device=args.device, fallback=args.fallback and args.backend != "mock",
+    class_map = cfg.get("checkpoint_class_map") or None
+    if class_map is not None and not isinstance(class_map, dict):
+        raise ValueError("checkpoint_class_map must be a mapping of checkpoint label -> contract label")
+
+    # The hosted backend is addressed by model id rather than a file on disk.
+    target = args.model_id if args.backend == "roboflow" else args.weights
+    detector = MobilityDetector(
+        target, backend=args.backend, class_names=names,
+        imgsz=args.imgsz, device=args.device, fallback=args.fallback, simulation=args.simulation,
+        class_map=class_map,
     )
-    if args.backend == "mock":
-        model_version = "mock"
+    model_version = detector.model_version
     detector.warmup()
     gate = ConsecutiveDetectionGate(accepted, required)
+    smoother = BoxSmoother(alpha=args.smoothing_alpha) if args.preview else None
+    person_preview = None
+    if args.preview and not args.no_person_association:
+        person_preview = PersonPreview(args.person_weights, device=args.device, imgsz=args.imgsz,
+                                       confidence=det_conf, alpha=args.smoothing_alpha)
+    age_preview = None
+    if args.demographics:
+        if args.age_backend == "roboflow":
+            from .roboflow_age import DEFAULT_MODEL_ID, RoboflowAgePreview
+            age_preview = RoboflowAgePreview(model_id=args.age_model_id or DEFAULT_MODEL_ID)
+        else:
+            from .age_preview import AgePreview
+            age_preview = AgePreview(args.age_model_dir)
 
     sink = "http" if args.emit else "mqtt" if args.mqtt else "stdout"
     emitter = EventEmitter(
         device_id=os.getenv("SYS_STOP_ID", "stop_01"), model_version=model_version,
-        allowed_labels=accepted | {"other"}, sink=sink, http_base=args.emit,
-        api_key=args.api_key, mqtt_broker=args.mqtt, is_simulation=args.simulation,
+        allowed_labels=accepted, sink=sink, http_base=args.emit,
+        api_key=args.api_key, mqtt_broker=args.mqtt, is_simulation=detector.is_simulation,
     )
 
     def resolve_label(name: str, conf: float) -> str:
         return "other" if name in accepted and conf < other_thr else name
 
     cap = open_source(args.source)
+    processed = 0
+    last_shape = None
     print(f"[run] source={args.source} backend={args.backend or 'auto'} sink={sink}. Ctrl-C to stop.")
     try:
         while True:
             ok, frame = cap.read()
             if not ok:
+                if processed == 0:
+                    raise RuntimeError(f"source {args.source!r} opened but returned no frames")
                 break
             t_capture_ns = time.monotonic_ns()          # T0
-            detections = detector.infer(frame, conf=det_conf)
+            detections = filter_detections(detector.infer(frame, conf=det_conf), det_conf)
             t_infer_ns = time.monotonic_ns()            # T1
             infer_ms = int((t_infer_ns - t_capture_ns) / 1e6)
 
@@ -180,12 +245,26 @@ def main() -> None:
             if args.preview:
                 import cv2
 
-                for d, lab in zip(detections, labels):
+                if frame.shape != last_shape:
+                    smoother.reset()
+                    last_shape = frame.shape
+                # All person inference reads the original frame, before any
+                # age/box drawing. Its output is never added to detections.
+                people = person_preview.detect(frame) if person_preview is not None else []
+                mobility_tracks = smoother.update(detections)
+                if age_preview is not None:
+                    age_preview.render(frame)
+                for track in mobility_tracks:
+                    d = track.detection
+                    lab = resolve_label(d.class_name, d.confidence)
                     x1, y1, x2, y2 = (int(v) for v in d.xyxy)
-                    color = (0, 200, 0) if lab != "other" else (0, 165, 255)
+                    color = (140, 140, 140) if track.missed else (0, 200, 0) if lab != "other" else (0, 165, 255)
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                    cv2.putText(frame, f"{lab.upper()} {d.confidence:.0%}", (x1, max(y1 - 8, 20)),
+                    suffix = " (held)" if track.missed else ""
+                    cv2.putText(frame, f"{lab.upper()} {d.confidence:.0%}{suffix}", (x1, max(y1 - 8, 20)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+                if person_preview is not None:
+                    person_preview.draw(frame, people, mobility_tracks)
                 cv2.putText(frame, f"{result.status.upper()} {result.label or ''} "
                             f"{result.consecutive}/{required}", (16, 32),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 0), 2)
@@ -194,6 +273,9 @@ def main() -> None:
                     break
             elif args.source == "mock":
                 time.sleep(0.02)  # ~50 fps ceiling; don't spin the CPU headless
+            processed += 1
+            if args.max_frames and processed >= args.max_frames:
+                break
     except KeyboardInterrupt:
         pass
     finally:
