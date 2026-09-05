@@ -47,8 +47,8 @@ class Settings:
 
     # Citizen chat provider. Secrets remain backend-only.
     CHAT_PROVIDER: str = os.getenv("CHAT_PROVIDER", "mock").strip().lower()
-    DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
-    DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 
 @lru_cache

@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
 from app.database import engine  # noqa: E402
+from app.services.chat import GeminiChatProvider, MockChatProvider, get_chat_provider, settings  # noqa: E402
 
 
 class CitizenChatTests(unittest.TestCase):
@@ -86,6 +87,20 @@ class CitizenChatTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("event: action_proposal", response.text)
         self.assertIn('"stop_id": "stop_01"', response.text)
+
+    def test_provider_selection_does_not_contact_gemini(self):
+        original = settings.CHAT_PROVIDER
+        try:
+            settings.CHAT_PROVIDER = "gemini"
+            self.assertIsInstance(get_chat_provider(), GeminiChatProvider)
+            settings.CHAT_PROVIDER = "mock"
+            self.assertIsInstance(get_chat_provider(), MockChatProvider)
+        finally:
+            settings.CHAT_PROVIDER = original
+
+    def test_gemini_defaults_are_safe(self):
+        self.assertEqual(settings.GEMINI_MODEL, "gemini-2.5-flash")
+        self.assertEqual(settings.GEMINI_API_KEY, "")
 
 
 if __name__ == "__main__":

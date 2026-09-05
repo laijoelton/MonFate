@@ -104,8 +104,8 @@ no working ramp would report a "handled" boarding that cannot happen.
 The citizen cockpit includes an ephemeral, English text assistant served by
 `POST /api/v1/chat/stream`. The browser sends at most 20 messages and receives
 SSE text deltas plus validated action proposals. `CHAT_PROVIDER=mock` provides
-deterministic offline demonstrations; `CHAT_PROVIDER=deepseek` uses the
-backend-only DeepSeek key. Chat history is not persisted.
+deterministic offline demonstrations; `CHAT_PROVIDER=gemini` uses Gemini 2.5
+Flash with a backend-only API key. Chat history is not persisted.
 
 The assistant can propose an `AssistanceRequest` or `ObstacleReport`, but it
 cannot execute either. The citizen must press a visible Confirm button. New
@@ -127,7 +127,7 @@ the existing `assistance_request` WebSocket event to the admin dashboard.
 | 9 | Firmware / RTOS station node beyond the simulator | Codex | ⬜ Not started |
 | 10 | End-to-end demo polish, WCAG audit | Both | ⬜ Not started |
 | 11 | Citizen SampAI mock stream, confirmed assistance/obstacle actions | Both | ✅ Done |
-| 12 | DeepSeek live-provider verification with deployment key | Codex | ⬜ Not started |
+| 12 | Gemini live-provider verification with deployment key | Codex | ⬜ Not started |
 
 The full layer-by-layer feature breakdown and changelog live in
 [README.md](../README.md#current-system-architecture--implemented-features).

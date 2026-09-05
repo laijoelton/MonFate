@@ -23,25 +23,6 @@ Ask for both a stop and an accessibility need before proposing assistance. Never
 action succeeded: tools only create proposals which the rider must confirm. Emergency
 assistance is not a replacement for local emergency services."""
 
-TOOLS = [
-    {"type": "function", "function": {"name": "propose_assistance_request",
-     "description": "Propose boarding help after the rider supplied a stop and need.",
-     "parameters": {"type": "object", "properties": {
-         "passenger_need": {"type": "string"}, "stop_id": {"type": "string"},
-         "bus_id": {"type": ["string", "null"]}},
-         "required": ["passenger_need", "stop_id"]}}},
-    {"type": "function", "function": {"name": "propose_obstacle_report",
-     "description": "Propose an accessibility obstacle report at a known stop.",
-     "parameters": {"type": "object", "properties": {
-         "obstacle_type": {"type": "string", "enum": ["blocked_ramp", "elevator_outage",
-             "missing_tactile_paving", "construction", "sidewalk_obstruction", "other"]},
-         "stop_id": {"type": "string"}, "description": {"type": "string"},
-         "affects": {"type": "array", "items": {"type": "string", "enum": [
-             "wheelchair_ramp", "tactile_paving", "working_elevator", "stroller_friendly"]}}},
-         "required": ["obstacle_type", "stop_id", "description", "affects"]}}},
-]
-
-
 class ChatProvider(ABC):
     @abstractmethod
     async def stream(self, messages: list[ChatMessage], context: dict[str, Any]) -> AsyncIterator[dict]:
@@ -114,36 +95,89 @@ class MockChatProvider(ChatProvider):
             yield {"event": "action_proposal", "data": {"proposal": proposal}}
 
 
-class DeepSeekChatProvider(ChatProvider):
+class GeminiChatProvider(ChatProvider):
     async def stream(self, messages: list[ChatMessage], context: dict[str, Any]) -> AsyncIterator[dict]:
-        if not settings.DEEPSEEK_API_KEY:
-            raise RuntimeError("DeepSeek is not configured. Add DEEPSEEK_API_KEY on the backend.")
-        from openai import AsyncOpenAI
+        if not settings.GEMINI_API_KEY:
+            raise RuntimeError("Gemini is not configured. Add GEMINI_API_KEY on the backend.")
 
-        client = AsyncOpenAI(api_key=settings.DEEPSEEK_API_KEY,
-                             base_url="https://api.deepseek.com", timeout=25.0)
-        stream = await client.chat.completions.create(
-            model=settings.DEEPSEEK_MODEL,
-            messages=[{"role": "system", "content": SYSTEM_PROMPT + "\nSnapshot:\n" + json.dumps(context)},
-                      *[m.model_dump() for m in messages]],
-            tools=TOOLS, stream=True, extra_body={"thinking": {"type": "disabled"}},
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        contents = [
+            types.Content(
+                role="user" if message.role == "user" else "model",
+                parts=[types.Part.from_text(text=message.content)],
+            )
+            for message in messages
+        ]
+        assistance = types.FunctionDeclaration(
+            name="propose_assistance_request",
+            description="Propose boarding help after the rider supplied a stop and need.",
+            parameters_json_schema={
+                "type": "object",
+                "properties": {
+                    "passenger_need": {"type": "string"},
+                    "stop_id": {"type": "string"},
+                    "bus_id": {"type": "string"},
+                },
+                "required": ["passenger_need", "stop_id"],
+            },
         )
-        calls: dict[int, dict[str, str]] = {}
-        async for chunk in stream:
-            delta = chunk.choices[0].delta
-            if delta.content:
-                yield {"event": "text_delta", "data": {"text": delta.content}}
-            for call in delta.tool_calls or []:
-                entry = calls.setdefault(call.index, {"name": "", "arguments": ""})
-                if call.function and call.function.name:
-                    entry["name"] += call.function.name
-                if call.function and call.function.arguments:
-                    entry["arguments"] += call.function.arguments
-        for call in calls.values():
+        obstacle = types.FunctionDeclaration(
+            name="propose_obstacle_report",
+            description="Propose an accessibility obstacle report at a known stop.",
+            parameters_json_schema={
+                "type": "object",
+                "properties": {
+                    "obstacle_type": {
+                        "type": "string",
+                        "enum": [
+                            "blocked_ramp", "elevator_outage", "missing_tactile_paving",
+                            "construction", "sidewalk_obstruction", "other",
+                        ],
+                    },
+                    "stop_id": {"type": "string"},
+                    "description": {"type": "string"},
+                    "affects": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "wheelchair_ramp", "tactile_paving",
+                                "working_elevator", "stroller_friendly",
+                            ],
+                        },
+                    },
+                },
+                "required": ["obstacle_type", "stop_id", "description", "affects"],
+            },
+        )
+
+        calls: list[tuple[str, dict[str, Any]]] = []
+        try:
+            stream = await client.aio.models.generate_content_stream(
+                model=settings.GEMINI_MODEL,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT + "\nSnapshot:\n" + json.dumps(context),
+                    tools=[types.Tool(function_declarations=[assistance, obstacle])],
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                    temperature=0.2,
+                ),
+            )
+            async for chunk in stream:
+                if chunk.text:
+                    yield {"event": "text_delta", "data": {"text": chunk.text}}
+                for call in chunk.function_calls or []:
+                    calls.append((call.name, dict(call.args or {})))
+        finally:
+            await client.aio.aclose()
+
+        for function_name, args in calls:
             try:
-                args = json.loads(call["arguments"])
                 args["action"] = ({"propose_assistance_request": "assistance_request",
-                                   "propose_obstacle_report": "obstacle_report"})[call["name"]]
+                                   "propose_obstacle_report": "obstacle_report"})[function_name]
                 proposal = proposal_adapter.validate_python(args)
                 known_stops = {stop["stop_id"] for stop in context["stops"]}
                 known_buses = {vehicle["vehicle_id"] for vehicle in context["vehicles"]}
@@ -155,10 +189,10 @@ class DeepSeekChatProvider(ChatProvider):
                     and proposal.bus_id not in known_buses
                 ):
                     raise ValueError("unknown bus")
-            except (KeyError, json.JSONDecodeError, ValidationError, ValueError) as exc:
+            except (KeyError, ValidationError, ValueError, TypeError) as exc:
                 raise RuntimeError("The proposed action was invalid. Please restate the details.") from exc
             yield {"event": "action_proposal", "data": {"proposal": proposal.model_dump(mode="json")}}
 
 
 def get_chat_provider() -> ChatProvider:
-    return DeepSeekChatProvider() if settings.CHAT_PROVIDER == "deepseek" else MockChatProvider()
+    return GeminiChatProvider() if settings.CHAT_PROVIDER == "gemini" else MockChatProvider()
