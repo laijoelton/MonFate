@@ -131,6 +131,26 @@ no working ramp would report a "handled" boarding that cannot happen.
   Python 3.12 environment, including a real untrained YOLOv8 export round trip.
   No mobility accuracy claim is made by these synthetic runtime checks.
 
+### Milestone 7 — training support (2026-09-05)
+
+- `edge_vision/finetune.py` supports pretrained Ultralytics YOLOv8n transfer
+  learning, configurable layer freezing, local YOLO dataset validation, best
+  checkpoint evaluation, and static ONNX export with a validated CPU warmup.
+  Validation checks readable images, annotations, class IDs, normalized box
+  bounds, all dispatch classes in each split, and duplicate images across splits.
+- `metrics.json` records precision, recall, mAP50, mAP50–95, and per-class mAP
+  (null for classes absent from evaluation). Training assets stay local and
+  ignored by Git. Setup, dataset format, and commands are documented in
+  `edge_vision/models/README.md`.
+- **47 tests passed** across all `edge_vision/tests/` tests on Windows/Python
+  3.12, using the project `.venv`: pytest 9.1.1, NumPy 2.5.2, Ultralytics
+  8.4.140, PyTorch 2.14.0, ONNX 1.22.0, and ONNX Runtime 1.29.0.
+  The real untrained YOLOv8 export test reports three upstream export warnings.
+  Training orchestration/metrics tests use a stub; no real-data training run
+  or production accuracy evaluation has been performed.
+- Milestone 7 remains **in progress** until labelled station data is supplied,
+  a head is trained, and held-out real-world accuracy is evaluated.
+
 The full layer-by-layer feature breakdown and changelog live in
 [README.md](../README.md#current-system-architecture--implemented-features).
 

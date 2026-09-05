@@ -150,7 +150,7 @@ appearing as the simulated stops report passengers.
 
 ```bash
 python -m edge_vision.run --mock        # synthetic frames, no camera, no model
-python -m edge_vision.run --source 0 --preview   # your real webcam
+python -m edge_vision.run --source 0 --weights path/to/best.onnx --preview
 ```
 
 ---
@@ -176,7 +176,7 @@ python -m edge_vision.run --source 0 --preview   # your real webcam
 
 | Gap | Why it matters | Milestone |
 |---|---|---|
-| **Detection head cannot see wheelchairs yet.** The shipped weights were pre-trained for a different task, so the pipeline runs through `MockDetector` cycling the accessibility classes. | Everything downstream is real — gate, emitter, ingest, trust, dispatch, cockpit. Only the model output is synthetic. Needs `finetune.py` plus a labelled mobility-aid dataset. | 7 |
+| **Real-data training is pending.** Validated YOLO/ONNX inference and `finetune.py` are implemented; the shipped legacy weights remain incompatible. | Supply labelled mobility data, train and evaluate the head using the [training guide](edge_vision/models/README.md). Missing weights use explicitly simulated mock events; incompatible existing weights fail closed. | 7 |
 | **Route scoring and barrier avoidance not built.** The `AccessibilityRoute` contract and the spatial maths it needs exist; no path-scoring endpoint does. | This is Layer 4 in the diagram, drawn dashed for a reason. Riders currently see obstacles but are not routed around them. | 8 |
 | **Station node is simulated, not embedded.** No firmware / RTOS build yet. | The pipeline runs on a laptop today. | 9 |
 | **No WCAG audit yet.** Keyboard paths, focus states, and `aria-live` regions are built in but unverified against the spec. | This is an accessibility product; the bar is higher than usual. | 10 |
@@ -192,8 +192,9 @@ Backend-agnostic pipeline: **source → inference → confirmation gate →
 image-free emitter**.
 
 - **Four interchangeable backends** (`inference/`): PyTorch, ONNX Runtime,
-  TFLite, TensorRT, plus a dependency-free `mock`. An automatic fallback chain
-  walks TensorRT → ONNX → PyTorch and GPU → CPU, so a missing GPU never aborts a run.
+  TFLite, TensorRT, plus a dependency-free `mock`. The mobility runner permits
+  validated PyTorch/ONNX artifacts and retries the same artifact on CPU.
+  TensorRT/TFLite remain generic backends pending class-metadata validation.
 - **`ConsecutiveDetectionGate`** — emits only after N consecutive frames agree
   on the same accepted class with exactly one object in view. Set to **5** here:
   a false dispatch wastes a bus, and a waiting passenger is a persistent signal,
@@ -277,12 +278,20 @@ Legend: ✅ done · ⬜ not started
 | 4 | Backend telemetry: ingest, WebSocket stream, transit simulation | Backend | Claude | ✅ |
 | 5 | Trust consensus, spatial, forecasting, dispatch services | ML | Claude | ✅ |
 | 6 | Cockpit wired to live backend | UI | Claude | ✅ |
-| 7 | Fine-tuned detection head on real mobility-aid data | Edge | Codex | ⬜ |
+| 7 | Fine-tuned detection head on real mobility-aid data | Edge | Codex | In progress: runtime/training tooling ready; real-data training pending |
 | 8 | Route scoring endpoint + rendered accessible routes | Backend + UI | Both | ⬜ |
 | 9 | Firmware / RTOS station node beyond the simulator | Edge | Codex | ⬜ |
 | 10 | End-to-end demo polish + WCAG audit | All | Both | ⬜ |
 
 ### Changelog
+
+**2026-09-05 — Mobility vision runtime and training support**
+- Added strict class-map/head validation, explicit simulation fallback, and
+  model fingerprints; enforced the five-frame gate and corrected event ingestion.
+- Added YOLOv8n transfer learning, dataset validation, evaluation metrics, ONNX
+  export, and a [training guide](edge_vision/models/README.md).
+- All 47 edge tests pass, including real checkpoint/ONNX runtime checks;
+  trained mobility weights and real-world accuracy validation remain pending.
 
 **2026-09-05 — Team README + Cyberjaya corridor**
 - Added the interactive Mermaid architecture diagram and a beginner-friendly
