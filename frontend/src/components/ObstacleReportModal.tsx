@@ -209,6 +209,7 @@ export function ObstacleReportModal({
 
             <button
               type="submit"
+              data-voice-manual
               disabled={submitting}
               className="w-full rounded-lg bg-accent py-2 text-sm font-semibold text-slate-950 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
             >

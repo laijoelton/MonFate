@@ -15,6 +15,7 @@ import { TransitTrackerCard } from "@/components/TransitTrackerCard";
 import { Card } from "@/components/ui/Card";
 import { postObstacle } from "@/lib/api";
 import { useCockpit } from "@/lib/useCockpit";
+import { useVoiceFeedback } from "@/components/VoiceFeedback";
 import { ACCESSIBILITY_FILTERS } from "@/lib/mock-data";
 import type { AccessibilityFeature, ObstacleReport } from "@/types/monfate";
 
@@ -22,6 +23,7 @@ import type { AccessibilityFeature, ObstacleReport } from "@/types/monfate";
 const FALLBACK_LOCATION = { lat: 2.9095, lng: 101.6625 }; // Tamarind Square
 
 export default function Cockpit() {
+  const announce = useVoiceFeedback();
   const cockpit = useCockpit();
   const [activeFilters, setActiveFilters] = useState<Set<AccessibilityFeature>>(new Set());
   const [selectedObstacle, setSelectedObstacle] = useState<ObstacleReport | null>(null);
@@ -58,6 +60,7 @@ export default function Cockpit() {
   };
 
   const handleSubmitReport = async (draft: ObstacleDraft) => {
+    announce("Submitting obstacle report.");
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -68,8 +71,10 @@ export default function Cockpit() {
         affects: draft.affects,
       });
       cockpit.pushObstacle(obstacle);
+      announce("Obstacle report saved.");
       setModalOpen(false);
     } catch {
+      announce("Could not reach the backend. Your report was not saved.");
       setSubmitError("Could not reach the backend. Your report was not saved.");
     } finally {
       setSubmitting(false);
@@ -91,6 +96,7 @@ export default function Cockpit() {
           <button
             type="button"
             onClick={openReportForm}
+            data-voice-message="Opening obstacle report form."
             className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-slate-950 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <MapPinPlus aria-hidden className="h-4 w-4" />

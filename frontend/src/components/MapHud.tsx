@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useVoiceFeedback } from "@/components/VoiceFeedback";
 import { Bus, TriangleAlert } from "lucide-react";
 import type {
   AccessibilityFeature,
@@ -41,6 +42,11 @@ export function MapHud({
   selectedObstacleId,
   onSelectObstacle,
 }: MapHudProps) {
+  const announce = useVoiceFeedback();
+  const selectObstacle = (obstacle: ObstacleReport) => {
+    announce(`Opening ${obstacle.obstacle_type.replace(/_/g, " ")} report. Trust score ${Math.round(obstacle.trust_score)} percent.`);
+    onSelectObstacle(obstacle);
+  };
   const visibleObstacles = useMemo(
     () =>
       activeFilters.size === 0
@@ -94,7 +100,7 @@ export function MapHud({
     <div className="glass relative h-full overflow-hidden rounded-2xl">
       <svg
         viewBox={`0 0 ${VIEW} ${VIEW}`}
-        role="img"
+        role="group"
         aria-label={`Accessible transit map: ${visibleObstacles.length} obstacles, ${vehicles.length} vehicles, ${stops.length} stops`}
         className="h-full w-full"
         preserveAspectRatio="xMidYMid meet"
@@ -158,17 +164,17 @@ export function MapHud({
             <g
               key={o.id}
               transform={`translate(${x} ${y})`}
-              onClick={() => onSelectObstacle(o)}
+              onClick={() => selectObstacle(o)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  onSelectObstacle(o);
+                  if (!e.repeat) selectObstacle(o);
                 }
               }}
               tabIndex={0}
               role="button"
               aria-label={`${o.obstacle_type.replace(/_/g, " ")} at trust score ${Math.round(o.trust_score)} percent`}
-              className="cursor-pointer focus:outline-none"
+              className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
             >
               {isSelected && (
                 <circle r={4.2} fill="none" stroke="oklch(0.95 0 0)" strokeWidth={0.5} />
