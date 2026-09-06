@@ -26,9 +26,10 @@ import { addObstacleReport, subscribeToObstacles } from "@/lib/firestore-obstacl
 import { subscribeToVehicleAttributes, type VehicleAttributes } from "@/lib/firestore-vehicles";
 import { submitVehicleReport } from "@/lib/firestore-vehicle-reports";
 import { submitTripRequest } from "@/lib/firestore-trip-requests";
+import { subscribeToIncidents } from "@/lib/firestore-incidents";
 import { NEED_LABELS, useUserProfile } from "@/lib/user-profile";
 import { MOCK_NOW, MOCK_OBSTACLES } from "@/lib/mock-data";
-import type { NeedType, ObstacleReport, TransitVehicle } from "@/types/monfate";
+import type { ActiveIncident, NeedType, ObstacleReport, TransitVehicle } from "@/types/monfate";
 
 const CyberjayaMap = dynamic(
   () => import("@/components/CyberjayaMap").then((mod) => mod.CyberjayaMap),
@@ -73,13 +74,23 @@ export default function CitizenApp() {
   const [page, setPage] = useState<CitizenPage>("home");
   const [obstacles, setObstacles] = useState<ObstacleReport[]>(MOCK_OBSTACLES);
   const [vehicleAttributes, setVehicleAttributes] = useState<Record<string, VehicleAttributes>>({});
+  const [incidents, setIncidents] = useState<Record<string, ActiveIncident>>({});
 
   const trafficRoutes = useTrafficAwareRoutes(CYBERJAYA_ROUTES);
   const routeDurationsSeconds = useMemo(
     () => Object.fromEntries(Object.entries(trafficRoutes).map(([id, r]) => [id, r.durationSeconds])),
     [trafficRoutes],
   );
-  const { vehicles: simulatedVehicles, reportVehicleIssue } = useSimulatedFleet(1200, routeDurationsSeconds);
+  const routeDetours = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(incidents)
+          .filter(([, active]) => active.detour)
+          .map(([routeId, active]) => [routeId, active.detour!]),
+      ),
+    [incidents],
+  );
+  const { vehicles: simulatedVehicles, reportVehicleIssue } = useSimulatedFleet(1200, routeDurationsSeconds, routeDetours);
   const vehicles: TransitVehicle[] = simulatedVehicles.map((v) => ({
     ...v,
     ...(vehicleAttributes[v.vehicle_id] ?? {}),
@@ -110,9 +121,11 @@ export default function CitizenApp() {
     if (!isFirebaseConfigured) return;
     const unsubObstacles = subscribeToObstacles(setObstacles);
     const unsubVehicles = subscribeToVehicleAttributes(setVehicleAttributes);
+    const unsubIncidents = subscribeToIncidents(setIncidents);
     return () => {
       unsubObstacles?.();
       unsubVehicles?.();
+      unsubIncidents?.();
     };
   }, []);
 
@@ -285,7 +298,7 @@ export default function CitizenApp() {
                             selectedObstacleId={null}
                             onSelectObstacle={() => {}}
                             trafficRoutes={trafficRoutes}
-                            incidents={{}}
+                            incidents={incidents}
                           />
                         </section>
                       </div>

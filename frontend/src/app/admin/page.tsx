@@ -2,7 +2,8 @@
 
 import "./cockpit-theme.css";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -27,11 +28,19 @@ import { subscribeToObstacles } from "@/lib/firestore-obstacles";
 import { subscribeToVehicleAttributes, type VehicleAttributes } from "@/lib/firestore-vehicles";
 import { subscribeToTripRequests } from "@/lib/firestore-trip-requests";
 import { useSimulatedFleet } from "@/lib/fleet-simulation";
+import { useTrafficAwareRoutes } from "@/lib/traffic-routes";
 import { useAccidentSimulation } from "@/lib/accident-simulation";
 import { AccidentSimulatorPanel } from "@/components/AccidentSimulatorPanel";
 import { getRoute, ALL_STOPS, CYBERJAYA_ROUTES } from "@/lib/cyberjaya-routes";
 import { NEED_LABELS } from "@/lib/user-profile";
 import type { DispatchAlert, ObstacleReport, TransitVehicle, TripRequest, VehicleReport } from "@/types/monfate";
+
+// Leaflet reaches into `window` at import time, so this must never render
+// on the server — ssr: false keeps it out of Next.js's server render pass.
+const CyberjayaMap = dynamic(
+  () => import("@/components/CyberjayaMap").then((mod) => mod.CyberjayaMap),
+  { ssr: false, loading: () => <div style={{ height: 420, display: "grid", placeItems: "center" }}>Loading map…</div> },
+);
 
 export default function AdminPage() {
   const [reports, setReports] = useState<VehicleReport[]>([]);
@@ -43,8 +52,22 @@ export default function AdminPage() {
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
   const [tripRequests, setTripRequests] = useState<TripRequest[]>([]);
 
-  const { vehicles: simulatedVehicles } = useSimulatedFleet();
+  const trafficRoutes = useTrafficAwareRoutes(CYBERJAYA_ROUTES);
   const { incidents, triggerAccident, clearAccident } = useAccidentSimulation(CYBERJAYA_ROUTES);
+  const routeDetours = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(incidents)
+          .filter(([, active]) => active.detour)
+          .map(([routeId, active]) => [routeId, active.detour!]),
+      ),
+    [incidents],
+  );
+  const routeDurationsSeconds = useMemo(
+    () => Object.fromEntries(Object.entries(trafficRoutes).map(([id, r]) => [id, r.durationSeconds])),
+    [trafficRoutes],
+  );
+  const { vehicles: simulatedVehicles } = useSimulatedFleet(1200, routeDurationsSeconds, routeDetours);
   const vehicles: TransitVehicle[] = simulatedVehicles.map((v) => ({
     ...v,
     ...(vehicleAttributes[v.vehicle_id] ?? {}),
@@ -428,6 +451,21 @@ export default function AdminPage() {
               );
             })()
           )}
+        </Card>
+
+        <Card title="Live network map" icon={<MapPin className="h-4 w-4" />}>
+          <div style={{ height: 420, borderRadius: 12, overflow: "hidden", isolation: "isolate" }}>
+            <CyberjayaMap
+              vehicles={vehicles}
+              obstacles={obstacles}
+              activeFilters={new Set()}
+              selectedRouteId="all"
+              selectedObstacleId={null}
+              onSelectObstacle={() => {}}
+              trafficRoutes={trafficRoutes}
+              incidents={incidents}
+            />
+          </div>
         </Card>
 
         <Card title="Ops tools — simulate accident" icon={<AlertTriangle className="h-4 w-4" />}>

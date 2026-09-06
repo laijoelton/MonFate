@@ -205,6 +205,27 @@ export interface RouteIncident {
   reported_at: string;
 }
 
+export type DetourSource = "google" | "ml_fallback";
+
+/** Structurally identical to google-routes.ts's TrafficAwareRoute — kept as
+ * its own type here (rather than importing that one) so this file never
+ * depends on lib code, avoiding a circular import with google-routes.ts
+ * (which already imports Coordinates from here). */
+export interface DetourRoute {
+  path: Coordinates[];
+  durationSeconds: number;
+  distanceMeters: number;
+}
+
+/** A route's currently active incident plus whichever detour was computed
+ * for it — stored in Firestore (see lib/firestore-incidents.ts) so it's
+ * genuinely shared across every page and device, not local-only state. */
+export interface ActiveIncident {
+  incident: RouteIncident;
+  detour: DetourRoute | null;
+  detourSource: DetourSource | null;
+}
+
 export const ACCESSIBILITY_FEATURE_LABELS: Record<AccessibilityFeature, string> = {
   wheelchair_ramp: "Wheelchair Ramp",
   tactile_paving: "Tactile Paving",
