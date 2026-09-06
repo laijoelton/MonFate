@@ -116,7 +116,8 @@ function seedToVehicle(seed: BusSeed, nowIso: string, detours?: Record<string, R
     wheelchair_space_available: seed.wheelchair_space_available,
     priority_seats_available: seed.priority_seats_available,
     next_stop_id: detour ? "Rerouting via detour" : getNextStopName(route, seed.progress),
-    eta_seconds: Math.round((1 - (seed.progress * (route.stops.length - 1) % 1)) * 90),
+    eta_seconds: Math.max(45, Math.round((1 - ((seed.progress * (route.stops.length - 1)) % 1)) * 240)),
+    progress: seed.progress,
     last_updated_at: nowIso,
   };
 }

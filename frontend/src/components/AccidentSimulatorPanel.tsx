@@ -28,13 +28,13 @@ export function AccidentSimulatorPanel({ incidents, onTrigger, onClear }: Accide
     <div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
         <AlertTriangle aria-hidden className="h-4 w-4" />
-        Simulate accident (route optimization demo)
+        Simulate accident (real routing + ML fallback demo)
       </h2>
 
       {!isGoogleRoutesConfigured && (
         <p className="text-xs text-amber-800 dark:text-amber-300">
-          Add <code className="font-mono">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to see a real computed detour —
-          without it, the incident shows but buses stay on the normal route.
+          <code className="font-mono">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> isn&apos;t set, so detours will be computed by
+          the on-device ML fallback instead of live Google routing — still real, just coarser.
         </p>
       )}
 
@@ -85,7 +85,7 @@ export function AccidentSimulatorPanel({ incidents, onTrigger, onClear }: Accide
 
       {Object.values(incidents).length > 0 && (
         <ul className="space-y-1.5 pt-1">
-          {Object.values(incidents).map(({ incident, detour }) => (
+          {Object.values(incidents).map(({ incident, detour, detourSource }) => (
             <li
               key={incident.id}
               className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-xs dark:bg-zinc-900"
@@ -95,6 +95,16 @@ export function AccidentSimulatorPanel({ incidents, onTrigger, onClear }: Accide
                 {detour ? (
                   <span className="text-emerald-700 dark:text-emerald-400">
                     detour found (~{Math.round(detour.durationSeconds / 60)} min)
+                    {detourSource === "ml_fallback" && (
+                      <span className="ml-1 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+                        ML fallback
+                      </span>
+                    )}
+                    {detourSource === "google" && (
+                      <span className="ml-1 rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800 dark:bg-sky-900/40 dark:text-sky-300">
+                        live routing
+                      </span>
+                    )}
                   </span>
                 ) : (
                   <span className="text-amber-700 dark:text-amber-400">computing detour…</span>

@@ -10,7 +10,7 @@ function upsert(
 ): AssistanceRequest[] {
   return [incoming, ...current.filter((item) => item.id !== incoming.id)].sort(
     (a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp),
-  );
+  ).slice(0, 100);
 }
 
 /**
@@ -27,21 +27,29 @@ export function useBackendAssistanceRequests() {
     let stopped = false;
     let socket: WebSocket | null = null;
     let reconnectTimer: number | undefined;
+    let seedRetryTimer: number | undefined;
 
-    getAssistanceRequests()
-      .then((items) => {
-        if (!stopped) {
-          setRequests(items);
-          setLoaded(true);
-          setError(null);
-        }
-      })
-      .catch(() => {
-        if (!stopped) {
-          setLoaded(true);
-          setError("FastAPI assistance service is unavailable.");
-        }
-      });
+    const seed = () => {
+      getAssistanceRequests()
+        .then((items) => {
+          if (!stopped) {
+            setRequests((current) =>
+              items.reduce(upsert, current).slice(0, 100),
+            );
+            setLoaded(true);
+            setError(null);
+          }
+        })
+        .catch(() => {
+          if (!stopped) {
+            setLoaded(true);
+            setError("FastAPI assistance service is unavailable. Retrying…");
+            seedRetryTimer = window.setTimeout(seed, 3000);
+          }
+        });
+    };
+
+    seed();
 
     const connect = () => {
       if (stopped) return;
@@ -73,6 +81,7 @@ export function useBackendAssistanceRequests() {
     return () => {
       stopped = true;
       window.clearTimeout(reconnectTimer);
+      window.clearTimeout(seedRetryTimer);
       socket?.close();
     };
   }, []);
