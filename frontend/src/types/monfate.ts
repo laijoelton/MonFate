@@ -60,6 +60,7 @@ export interface TransitVehicle {
   next_stop_id: string;
   eta_seconds: number;
   last_updated_at: string;
+  progress?: number;
 }
 
 /** What a rider can filter buses by — separate from AccessibilityFeature

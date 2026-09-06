@@ -245,6 +245,28 @@ Run `npm run dev` in `frontend`, then open `http://localhost:3000`:
 Actual audibility depends on browser speech support and device audio settings;
 Swagger checks only JSON responses and cannot verify sound.
 
+## Citizen transit UI refinements (2026-09-06)
+
+The citizen dashboard and transit interfaces received targeted UI refinements:
+
+1. **Dashboard Map Dominance & Compact Trip Search Bar**:
+   - Cyberjaya Corridor map elevated as the dominant centerpiece taking most of the screen (`height: 60vh; min-height: 480px; max-height: 660px`).
+   - Replaced the large permanent trip planner card with a compact transport-style search bar at the top displaying Origin, Destination, and a "Plan a Trip" launcher button.
+   - KPI boxes updated from 4 to 3 (`Live Fleet`, `Ramp Faults`, `Nearby Stops`).
+2. **Plan a Trip Overlay Modal**:
+   - Opens as a dedicated overlay modal dialog (`BottomSheet wide`), keeping the dashboard map unobstructed.
+   - Includes station dropdowns, full daily fast time selection, real-time slot telemetry, accessibility needs checkboxes, and the assistance request checkbox (*"Do you need assistance for this trip?"*).
+3. **Full Daily Time Range & Multi-Row Fast Time Selection**:
+   - Full 6:00 AM to 11:30 PM service schedule with 71 chronological 15-minute departure intervals and time-of-day crowd telemetry.
+   - Multi-row wrapped grid layout (`.time-selector-wrap-grid`) with compact time chips and colored status dots (Green = Low crowd / seat likely, Yellow = Moderate / limited seating, Red = High crowd / seat unlikely).
+   - Available in both the Plan a Trip modal and the Crowd & Forecast page.
+4. **Nearby Bus Stops**:
+   - Enhanced visual hierarchy for arriving vehicles: clear route badges, ETA pills, colored capacity status (Green = seats available, Yellow = standing room, Red = no seats / very crowded), and accessibility indicators.
+5. **Estimated Trip Relocation**:
+   - Removed from the Crowd & Forecast page and displayed prominently on the Dashboard upon confirmation.
+6. **Decorative 3D Transit Background Graphics**:
+   - Ambient, subtle 3D isometric transit animation running with zero pointer obstruction (`pointer-events: none; z-index: 0`).
+
 ## Open questions
 
 - Real map provider (Leaflet/Mapbox) vs. continued SVG-grid mock for demo
