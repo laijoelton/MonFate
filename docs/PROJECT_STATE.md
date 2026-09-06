@@ -245,6 +245,16 @@ Run `npm run dev` in `frontend`, then open `http://localhost:3000`:
 Actual audibility depends on browser speech support and device audio settings;
 Swagger checks only JSON responses and cannot verify sound.
 
+## Admin boarding-assistance integration (2026-09-06)
+
+The consolidated admin cockpit now reads confirmed chatbot boarding-assistance
+requests from `GET /api/v1/assistance-requests` and listens for the existing
+`assistance_request` event on `/api/v1/stream`. New confirmations therefore
+appear in the operator queue without a refresh. This FastAPI/SQLite queue is
+shown separately from Firebase citizen trip requests so operators can tell the
+two workflows and their connection states apart. No shared backend contract or
+endpoint changed.
+
 ## Open questions
 
 - Real map provider (Leaflet/Mapbox) vs. continued SVG-grid mock for demo

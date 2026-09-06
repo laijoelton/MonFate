@@ -10,6 +10,7 @@ import type {
   VisionEvent,
 } from "@/types/monfate";
 import type { CitizenChatMessage } from "@/types/chat";
+import type { AssistanceRequest } from "@/types/admin";
 
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 
@@ -24,6 +25,8 @@ export const getHealth = () =>
 export const getObstacles = () => get<ObstacleReport[]>("/api/v1/obstacles");
 export const getVehicles = () => get<TransitVehicle[]>("/api/v1/vehicles");
 export const getStops = () => get<TransitStop[]>("/api/v1/stops");
+export const getAssistanceRequests = () =>
+  get<AssistanceRequest[]>("/api/v1/assistance-requests");
 export const getStopEvents = (stopId: string) =>
   get<VisionEvent[]>(`/api/v1/stops/${stopId}/events`);
 

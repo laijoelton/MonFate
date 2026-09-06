@@ -28,6 +28,7 @@ import { subscribeToVehicleAttributes, type VehicleAttributes } from "@/lib/fire
 import { subscribeToTripRequests } from "@/lib/firestore-trip-requests";
 import { useSimulatedFleet } from "@/lib/fleet-simulation";
 import { useAccidentSimulation } from "@/lib/accident-simulation";
+import { useBackendAssistanceRequests } from "@/lib/useBackendAssistanceRequests";
 import { AccidentSimulatorPanel } from "@/components/AccidentSimulatorPanel";
 import { getRoute, ALL_STOPS, CYBERJAYA_ROUTES } from "@/lib/cyberjaya-routes";
 import { NEED_LABELS } from "@/lib/user-profile";
@@ -42,6 +43,7 @@ export default function AdminPage() {
   const [reportsLoaded, setReportsLoaded] = useState(false);
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
   const [tripRequests, setTripRequests] = useState<TripRequest[]>([]);
+  const backendAssistance = useBackendAssistanceRequests();
 
   const { vehicles: simulatedVehicles } = useSimulatedFleet();
   const { incidents, triggerAccident, clearAccident } = useAccidentSimulation(CYBERJAYA_ROUTES);
@@ -343,6 +345,64 @@ export default function AdminPage() {
             ))}
           </div>
         </Card>
+        <Card
+          title="Boarding assistance requests"
+          icon={<ShieldCheck className="h-4 w-4" />}
+          right={
+            <StatusPill
+              tone={backendAssistance.connected ? "ok" : backendAssistance.error ? "down" : "idle"}
+              pulse={backendAssistance.connected}
+            >
+              {backendAssistance.connected ? "Live backend" : "Backend offline"}
+            </StatusPill>
+          }
+        >
+          {!backendAssistance.loaded && (
+            <p className="text-sm text-slate-400">Loading assistance queue…</p>
+          )}
+          {backendAssistance.error && (
+            <p role="alert" className="mb-3 text-sm text-down">
+              {backendAssistance.error} Existing Firebase panels remain available.
+            </p>
+          )}
+          {backendAssistance.loaded && backendAssistance.requests.length === 0 && (
+            <p className="text-sm text-slate-400">No chatbot boarding assistance requests yet.</p>
+          )}
+          <div className="space-y-2">
+            {backendAssistance.requests.slice(0, 10).map((request) => {
+              const stop = ALL_STOPS.find((item) => item.id === request.stop_id);
+              const tone =
+                request.status === "pending"
+                  ? "warn"
+                  : request.status === "completed"
+                    ? "ok"
+                    : request.status === "cancelled"
+                      ? "idle"
+                      : "accent";
+              return (
+                <div
+                  key={request.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-semibold">{request.passenger_need}</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {stop?.name ?? request.stop_id}
+                      {request.bus_id ? ` · Bus ${request.bus_id}` : " · Bus not assigned"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Submitted {new Date(request.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                  <StatusPill tone={tone} pulse={request.status === "pending"}>
+                    {request.status}
+                  </StatusPill>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
         <Card
           title="Passenger accessibility requests"
           icon={<ShieldCheck className="h-4 w-4" />}
