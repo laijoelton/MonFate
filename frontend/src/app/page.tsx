@@ -1,5 +1,6 @@
 "use client";
 
+import { BlindAssistanceDemo } from "@/components/BlindAssistanceDemo";
 import { useEffect, useState } from "react";
 import { MapPinPlus } from "lucide-react";
 import { AccessibilityFilterBar } from "@/components/AccessibilityFilterBar";
@@ -120,6 +121,8 @@ export default function Cockpit() {
           active={activeFilters}
           onToggle={toggleFilter}
         />
+
+        <BlindAssistanceDemo />
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.6fr_1fr]">
           <div className="h-[420px] lg:h-[560px]">
