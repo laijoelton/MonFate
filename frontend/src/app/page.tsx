@@ -17,7 +17,7 @@ import {
 import { BackgroundTransitAnimation } from "@/components/BackgroundTransitAnimation";
 import { CitizenChatDrawer } from "@/components/CitizenChatDrawer";
 import { CitizenNav, type CitizenPage } from "@/components/citizen/CitizenNav";
-import { VisualAssistancePanel } from "@/components/citizen/VisualAssistancePanel";
+import { BlindAssistanceDemo } from "@/components/citizen/BlindAssistanceDemo";
 import { BottomSheet } from "@/components/citizen/BottomSheet";
 import { ReportChoiceModal } from "@/components/ReportChoiceModal";
 import { BusReportModal, type BusIssueOption } from "@/components/BusReportModal";
@@ -419,10 +419,12 @@ export default function CitizenApp() {
 
   const confirmTripPlan = async () => {
     const { seconds } = estimateTripSeconds(fromStopId, toStopId, routeDurationsSeconds);
-    try {
-      await submitTripRequest(fromStopId, toStopId, Array.from(tripNeeds), seconds || null);
-    } catch (error) {
-      console.error("[MonFate] Failed to submit trip request:", error);
+    if (isFirebaseConfigured) {
+      try {
+        await submitTripRequest(fromStopId, toStopId, Array.from(tripNeeds), seconds || null);
+      } catch (error) {
+        console.error("[MonFate] Failed to submit trip request to Firestore:", error);
+      }
     }
     const fromName = ALL_STOPS.find((s) => s.id === fromStopId)?.name ?? "Origin";
     const toName = ALL_STOPS.find((s) => s.id === toStopId)?.name ?? "Destination";
@@ -996,7 +998,7 @@ export default function CitizenApp() {
                   </div>
                 </div>
 
-                <VisualAssistancePanel />
+                <BlindAssistanceDemo />
               </div>
             )}
           </div>

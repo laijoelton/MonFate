@@ -33,7 +33,7 @@ export function AccidentSimulatorPanel({ incidents, onTrigger, onClear }: Accide
 
       {!isGoogleRoutesConfigured && (
         <p className="text-xs text-amber-800 dark:text-amber-300">
-          <code className="font-mono">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> isn't set, so detours will be computed by
+          <code className="font-mono">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> isn&apos;t set, so detours will be computed by
           the on-device ML fallback instead of live Google routing — still real, just coarser.
         </p>
       )}
