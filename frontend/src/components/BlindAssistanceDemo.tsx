@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 
+const DESTINATIONS = [
+  "Cyberjaya Transport Terminal",
+  "Tamarind Square",
+  "MRT Cyberjaya City Centre",
+];
+
 type Feedback = {
   text: string;
   speech: string | null;
@@ -23,9 +29,10 @@ function speak(text: string) {
 }
 
 export function BlindAssistanceDemo() {
+  const [selectedDestination, setSelectedDestination] = useState("");
   const [running, setRunning] = useState(false);
   const [currentMessage, setCurrentMessage] = useState(
-    "Press Start Voice Navigation to begin.",
+    "Choose a destination to begin.",
   );
   const [error, setError] = useState("");
 
@@ -33,7 +40,10 @@ export function BlindAssistanceDemo() {
   const audioContextRef = useRef<AudioContext | null>(null);
 
   function clearTimers() {
-    timerIds.current.forEach((timer) => window.clearTimeout(timer));
+    timerIds.current.forEach((timer) => {
+      window.clearTimeout(timer);
+    });
+
     timerIds.current = [];
   }
 
@@ -56,7 +66,8 @@ export function BlindAssistanceDemo() {
     pattern.forEach((duration, index) => {
       const durationInSeconds = duration / 1000;
 
-      // Even positions are vibrations. Odd positions are pauses.
+      // Even positions are vibration periods.
+      // Odd positions are pauses.
       if (index % 2 === 0) {
         const oscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
@@ -85,7 +96,9 @@ export function BlindAssistanceDemo() {
         `${API_URL}/api/v1/visual-assistance/demo/navigation`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             step,
             preferences: {
@@ -123,7 +136,9 @@ export function BlindAssistanceDemo() {
         `${API_URL}/api/v1/visual-assistance/demo/alerts`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             event,
             preferences: {
@@ -141,40 +156,65 @@ export function BlindAssistanceDemo() {
 
       const feedback: Feedback = await response.json();
 
-      setCurrentMessage(feedback.text);
+      const alertText =
+        event === "destination_approaching"
+          ? `You have arrived at ${selectedDestination}.`
+          : feedback.text;
+
+      setCurrentMessage(alertText);
       setError("");
 
-      // Physical vibration on supported Android devices.
+      // Real vibration on supported Android devices.
       if (feedback.vibration_ms.length > 0) {
         navigator.vibrate?.(feedback.vibration_ms);
       }
 
-      // Audible vibration effect for the laptop demonstration.
+      // Audible vibration simulation for laptops.
       const soundDuration = playVibrationSound(feedback.vibration_ms);
 
       const speechTimer = window.setTimeout(() => {
-        speak(feedback.speech ?? feedback.text);
+        speak(alertText);
       }, soundDuration + 150);
 
       timerIds.current.push(speechTimer);
     } catch {
+      clearTimers();
       setRunning(false);
       setError("Could not play the automatic alert.");
     }
   }
 
+  function chooseDestination(destination: string) {
+    setSelectedDestination(destination);
+    setCurrentMessage(
+      `${destination} selected. Press Start Voice Navigation.`,
+    );
+    setError("");
+
+    speak(
+      `${destination} selected. Press Start Voice Navigation to confirm and begin.`,
+    );
+  }
+
   function startNavigation() {
+    if (!selectedDestination) {
+      setError("Please select a destination first.");
+      speak("Please select a destination first.");
+      return;
+    }
+
     clearTimers();
     window.speechSynthesis.cancel();
     navigator.vibrate?.(0);
-
-    // Starting audio here allows delayed alert sounds to play later.
     prepareAlertSound();
 
     setRunning(true);
     setError("");
-    setCurrentMessage("Voice navigation started.");
-    speak("Voice navigation started.");
+    setCurrentMessage(`Navigating to ${selectedDestination}.`);
+
+    speak(
+      `${selectedDestination} confirmed. Voice navigation started.`,
+    );
 
     const firstDirection = window.setTimeout(() => {
       void playDirection(0);
@@ -219,7 +259,10 @@ export function BlindAssistanceDemo() {
 
   useEffect(() => {
     return () => {
-      clearTimers();
+      timerIds.current.forEach((timer) => {
+        window.clearTimeout(timer);
+      });
+
       window.speechSynthesis.cancel();
       navigator.vibrate?.(0);
 
@@ -230,15 +273,49 @@ export function BlindAssistanceDemo() {
   }, []);
 
   return (
-    <section className="glass space-y-4 rounded-2xl p-5">
+    <section className="glass space-y-5 rounded-2xl p-5">
       <div>
         <h2 className="text-lg font-bold">Blind Assistance Demo</h2>
 
         <p className="text-sm text-slate-400">
-          Press Start once. Directions and travel alerts will happen
-          automatically.
+          Choose a destination and press Start once. Directions and alerts
+          will happen automatically.
         </p>
       </div>
+
+      <fieldset className="space-y-3" disabled={running}>
+        <legend className="text-sm font-semibold text-slate-200">
+          Choose your destination
+        </legend>
+
+        <p className="text-xs text-slate-400">
+          Use a screen reader, keyboard, touch, or mouse to select a
+          destination.
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {DESTINATIONS.map((destination) => {
+            const selected = selectedDestination === destination;
+
+            return (
+              <button
+                key={destination}
+                type="button"
+                data-voice-manual
+                aria-pressed={selected}
+                onClick={() => chooseDestination(destination)}
+                className={`min-h-16 rounded-xl border px-4 py-3 text-left font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 ${
+                  selected
+                    ? "border-accent bg-accent/20 text-accent"
+                    : "border-slate-600 text-slate-100"
+                }`}
+              >
+                {destination}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
 
       <p
         role="status"
@@ -260,10 +337,14 @@ export function BlindAssistanceDemo() {
           type="button"
           data-voice-manual
           onClick={startNavigation}
-          disabled={running}
-          className="min-h-14 rounded-xl bg-accent px-5 py-3 font-bold text-slate-950 disabled:opacity-50"
+          disabled={running || !selectedDestination}
+          className="min-h-14 rounded-xl bg-accent px-5 py-3 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {running ? "Navigation Running" : "Start Voice Navigation"}
+          {running
+            ? "Navigation Running"
+            : selectedDestination
+              ? "Start Voice Navigation"
+              : "Choose a Destination First"}
         </button>
 
         <button
@@ -271,7 +352,7 @@ export function BlindAssistanceDemo() {
           data-voice-manual
           onClick={stopNavigation}
           disabled={!running}
-          className="min-h-14 rounded-xl border border-slate-500 px-5 py-3 font-bold disabled:opacity-50"
+          className="min-h-14 rounded-xl border border-slate-500 px-5 py-3 font-bold disabled:cursor-not-allowed disabled:opacity-50"
         >
           Stop Navigation
         </button>
