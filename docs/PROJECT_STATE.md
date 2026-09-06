@@ -267,6 +267,16 @@ The citizen dashboard and transit interfaces received targeted UI refinements:
 6. **Decorative 3D Transit Background Graphics**:
    - Ambient, subtle 3D isometric transit animation running with zero pointer obstruction (`pointer-events: none; z-index: 0`).
 
+## Admin boarding-assistance integration (2026-09-06)
+
+The consolidated admin cockpit reads confirmed chatbot boarding-assistance
+requests from `GET /api/v1/assistance-requests` and listens for the existing
+`assistance_request` event on `/api/v1/stream`. New confirmations therefore
+appear in the operator queue without a refresh. The client retains at most 100
+requests and retries the REST seed after transient backend outages. This
+FastAPI/SQLite queue is shown separately from Firebase citizen trip requests.
+No shared backend contract or endpoint changed.
+
 ## Open questions
 
 - Real map provider (Leaflet/Mapbox) vs. continued SVG-grid mock for demo
