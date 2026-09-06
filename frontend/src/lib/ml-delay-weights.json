@@ -1,0 +1,21 @@
+{
+  "feature_names": [
+    "scheduled_hour",
+    "is_peak_hour",
+    "is_weekend",
+    "weather_clear",
+    "weather_haze",
+    "weather_rain"
+  ],
+  "coefficients": [
+    -0.00044347549010616873,
+    6.1398023001304125,
+    -0.009481323018607343,
+    -1.3135854375189597,
+    -1.2773112594580256,
+    2.590896696804143
+  ],
+  "intercept": 3.3620952373132744,
+  "test_mae_minutes": 2.226,
+  "trained_on_rows": 68510
+}
